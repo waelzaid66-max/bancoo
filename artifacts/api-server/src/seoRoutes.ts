@@ -31,10 +31,10 @@ const DEEP_LINK_SCHEME = "banco-mobile";
 
 // The global helmet CSP locks everything to 'self' (this is a JSON API). The
 // public HTML pages need inline <style> and listing images, so we override CSP
-// per-response with a tailored, still-tight policy: no scripts (JSON-LD is
-// non-executable data), inline styles only, images from self/https/data.
+// per-response with a tailored, still-tight policy. Updated to allow Vercel
+// Web Analytics scripts (inline + _vercel/insights).
 const SEO_HTML_CSP =
-  "default-src 'none'; img-src 'self' https: data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+  "default-src 'none'; script-src 'unsafe-inline' https://va.vercel-scripts.com; connect-src https://va.vercel-analytics.com; img-src 'self' https: data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
 /** Escape text for safe inclusion in HTML text/attribute contexts. */
 function escapeHtml(input: string): string {
@@ -78,6 +78,24 @@ function truncate(text: string, max: number): string {
   const t = text.trim();
   if (t.length <= max) return t;
   return `${t.slice(0, max - 1).trimEnd()}…`;
+}
+
+/**
+ * Returns the Vercel Web Analytics script tags for inline injection into HTML.
+ * Uses the standard approach for static HTML/vanilla JS sites as per
+ * https://vercel.com/docs/analytics/quickstart
+ */
+function getAnalyticsScripts(): string {
+  // Skip analytics in development mode
+  if (process.env.NODE_ENV === 'development') {
+    return '';
+  }
+  
+  return `
+    <script>
+      window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>`;
 }
 
 function renderListingHtml(listing: SeoListing, origin: string): string {
@@ -125,7 +143,7 @@ function renderListingHtml(listing: SeoListing, origin: string): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${e(pageTitle)}</title>
+    <title>${e(pageTitle)}</title>${getAnalyticsScripts()}
     <meta name="description" content="${e(description)}" />
     <link rel="canonical" href="${e(canonical)}" />
     <meta property="og:type" content="${listing.is_request ? "website" : "product"}" />
@@ -191,7 +209,7 @@ function renderNotFoundHtml(): string {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
-    <title>الإعلان غير متاح | BANCO</title>
+    <title>الإعلان غير متاح | BANCO</title>${getAnalyticsScripts()}
     <style>
       body { margin:0; font-family: system-ui, sans-serif; background:#0b0f14; color:#f3f5f7;
         min-height:100vh; display:flex; align-items:center; justify-content:center; text-align:center; padding:24px; }
