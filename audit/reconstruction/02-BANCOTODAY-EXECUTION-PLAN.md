@@ -9,7 +9,21 @@
 ---
 
 ## 0) HARD PRECONDITION (blocking)
-`git push` → `bancotoday` returns **403 (cursor[bot] denied)**. **Nothing below can execute until owner grants the Cursor GitHub App write access to `bancotoday`.** Unblock = GitHub → Settings → GitHub Apps → Cursor → Repository access → add `bancotoday`. Everything else here is ready‑to‑run (`bootstrap-bancotoday.sh`).
+`git push` → `bancotoday` returns **403** — verified 2026‑07‑23 for **both** `cursor[bot]` (app not granted) **and** the owner PAT (`denied to waelzaid66-max` → token lacks `repo`/Contents:write). `bancotoday` currently holds only a placeholder `Initial commit` (README). **Nothing below can execute until a WRITE credential exists.** Unblock: grant Cursor app (`https://github.com/settings/installations`) **or** a Classic PAT with `repo` scope. Then `bootstrap-bancotoday.sh` runs (force main to replace the placeholder).
+
+## 0.1) W0 pre‑flight AUDIT of the canonical baseline (executed 2026‑07‑23, evidence)
+Run on CA `210a325` (the exact bytes destined for `bancotoday`), Node 24 / pnpm 11.9:
+| Gate | Result |
+|---|---|
+| `pnpm install --frozen-lockfile` | ✅ PASS |
+| `pnpm run typecheck` (9 packages) | ✅ PASS — 0 errors |
+| `pnpm run lint` (`eslint scripts`) | ❌ **FAIL** — 1 error + 2 warnings |
+| API tests / build | ⏳ not run this pass (API tests need a provisioned DB) |
+
+**Lint defects to fix in W1 (both are CA‑only scripts, absent from `bancoo`):**
+- `scripts/generate-production-protocol-reports.mjs:185:67` — `no-useless-escape` (unnecessary `\|`).
+- `scripts/generate-production-validation-standard.mjs:56:7` — unused var `pnpm` (×2, `no-unused-vars`).
+→ Surgical fix (remove escape / prefix unused with `_`) before CI can enforce `lint` green on the canonical. **Confidence: High (verified).**
 
 ---
 
