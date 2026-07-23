@@ -1,5 +1,9 @@
 # BANCO — Source of Truth (SoT) — Living Master Document
 
+> **✅ MILESTONE 2026‑07‑23 — `bancotoday` canonical BUILT (clean, secret‑free).**
+> `bancotoday:main = 8faa30a` = CA `210a325` content, **secrets stripped** (`.replit` removed), **fresh single commit** (no secret‑bearing history), 2110 files. Audit gates: `pnpm install` ✅ · `typecheck` ✅ 0 errors. Secret scan pre‑push: CLEAN. `bancoo` untouched. Deploy target = Coolify. Next: assemble/organize waves on `bancotoday` (W1 lint fix + guards, then feature waves).
+
+
 **Owner:** Dr. Eng. Wael Zaid · **Maintainer note:** Cursor agent (`-8112`) · **Date:** 2026-07-23
 **Phase:** A/B (STUDY + PLAN only — **no code / PR‑to‑main / merge / migration / fix**).
 **Repair target (owner decision):** **`bancoo`** · **Deploy (owner decision):** **Coolify first, full, parallel with Replit**.
