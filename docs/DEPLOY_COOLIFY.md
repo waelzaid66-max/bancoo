@@ -13,9 +13,21 @@ This guide explains how to deploy the entire Banco monorepo on
 | `api` | Node.js Express | 8080 | REST + WebSocket API server |
 | `banco-web` | Next.js standalone | 3000 | Consumer app (listings, bookings, Clerk auth) |
 | `banco-website` | Next.js standalone | 3000 (→ 3001 host) | Marketing website |
-| `web` | Nginx + Vite SPAs | 80 | landing / dealer-os / admin-os |
+| `web` | Nginx + Vite SPAs | 80 | Landing + dealer-os + admin-os (dual path aliases) |
 
 The Expo mobile app (`artifacts/banco-mobile`) runs on iOS/Android via EAS — it is **not** deployed as a server container.
+
+### Live production note (Pre-Exec Gate)
+
+| Fact | Value |
+|------|-------|
+| Current live API origin | `https://banco.today` (also `https://banco.deals`) |
+| Current front door | Google Frontend / GCP — **not** Coolify yet |
+| Live SPA paths | `/dealer-os/`, `/admin-os/` |
+| Coolify alias paths | `/market/`, `/admin/` (same apps; **both** are served) |
+| Coolify on this repo | Files in this guide — DNS cutover is a later wave |
+
+Coolify deploy must **not** delete Replit project files. Replit and Coolify coexist until an explicit cutover.
 
 ---
 
@@ -123,11 +135,15 @@ Click **Deploy** in Coolify. Coolify will:
 | `PAYMOB_SECRET_KEY` | — | Paymob secret key |
 | `PAYMOB_HMAC_SECRET` | — | Paymob HMAC secret |
 | `PAYMOB_INTEGRATION_IDS` | — | Paymob integration IDs (JSON) |
-| `OBJECT_STORAGE_PROVIDER` | — | `s3` or `gcs` |
-| `S3_BUCKET` | — | S3 bucket name |
+| `OBJECT_STORAGE_PROVIDER` | — | **`s3` or `replit` only** — `gcs` is rejected by code |
+| `S3_BUCKET` | — | S3 bucket name (when provider=`s3`) |
 | `AWS_REGION` | — | AWS region |
-| `PUBLIC_OBJECT_SEARCH_PATHS` | — | Public S3/GCS path prefix for listing images |
-| `PRIVATE_OBJECT_DIR` | — | Private S3/GCS dir for internal assets |
+| `AWS_ACCESS_KEY_ID` | — | **Required on Hostinger/Coolify** (no IAM role). Optional on AWS with task/instance role |
+| `AWS_SECRET_ACCESS_KEY` | — | Pair with access key on non-AWS hosts |
+| `PUBLIC_OBJECT_SEARCH_PATHS` | — | Public S3 key prefixes for listing images |
+| `PRIVATE_OBJECT_DIR` | — | Private S3 key prefix for uploads |
+| `GIT_SHA` | — | Git commit baked into `/api/readyz` (set in Coolify to the deploy commit) |
+| `BUILD_ID` | — | Optional build id alongside `GIT_SHA` |
 | `ERROR_ALERT_WEBHOOK` | — | Webhook URL for error alerts |
 | `LOG_LEVEL` | `info` | Pino log level |
 | `LOG_DIR` | — | Directory for log file output (omit to log to stdout only) |
@@ -221,15 +237,21 @@ Coolify Traefik (HTTPS/TLS)
     ├──── app.yourdomain.com  →  banco-web:3000   (Next.js consumer app)
     ├──── yourdomain.com       →  banco-website:3000 (Next.js marketing site)
     ├──── api.yourdomain.com   →  api:8080          (REST API)
-    └──── static.yourdomain.com →  web:80            (Nginx: SPAs)
-                                      ├── /         landing
-                                      ├── /market/  dealer-os
-                                      └── /admin/   admin-os
+    └──── static / single-origin →  web:80         (Nginx: SPAs + /api + /l)
+                                      ├── /              landing
+                                      ├── /dealer-os/    dealer-os (LIVE path)
+                                      ├── /market/       dealer-os (Coolify alias)
+                                      ├── /admin-os/     admin-os (LIVE path)
+                                      ├── /admin/        admin-os (Coolify alias)
+                                      ├── /api/          → api:8080
+                                      ├── /l/            → api:8080 (SEO short links)
+                                      ├── /sitemap.xml   → api:8080
+                                      └── /robots.txt    → api:8080
 
 Internal Docker network (banco_net):
     api:8080  ←──── banco-web (SSR data fetches)
     api:8080  ←──── banco-website (SSR data fetches)
-    api:8080  ←──── web/nginx (/api/ reverse proxy)
+    api:8080  ←──── web/nginx (/api/ + /l/ reverse proxy)
     postgres:5432 ←──── api
 ```
 
@@ -238,7 +260,34 @@ Internal Docker network (banco_net):
 - All services communicate via the `banco_net` Docker bridge network
 - `api` service is reachable as hostname `api` from all other containers
 - `postgres` is only reachable internally (no host port exposed)
-- Browsers call `/api/*` → this is proxied server-side by Next.js (to `http://api:8080`) or by Nginx — browsers never need the internal `api` hostname
+- Browsers call `/api/*` → proxied by Next.js or Nginx — browsers never need the internal `api` hostname
+- **`/l/:id` is mounted on the API app root** (`seoRoutes.ts`), not under `/api`. Nginx **must** proxy `/l/`, `/sitemap.xml`, and `/robots.txt` or short links break on the SPA origin
+- Live Clerk is bound to **`banco.today`**. Include `https://banco.today` (and deals if used) in `CORS_ALLOWED_ORIGINS` when frontends are separate origins
+
+### Object storage on Hostinger
+
+```
+OBJECT_STORAGE_PROVIDER=s3
+AWS_REGION=...
+S3_BUCKET=...
+PUBLIC_OBJECT_SEARCH_PATHS=...
+PRIVATE_OBJECT_DIR=...
+AWS_ACCESS_KEY_ID=...          # required — VPS has no IAM role
+AWS_SECRET_ACCESS_KEY=...
+```
+
+Do **not** set `OBJECT_STORAGE_PROVIDER=gcs` — the factory throws. For GCP buckets use S3-compatible HMAC credentials with `s3`.
+
+### Deploy pin
+
+Set `GIT_SHA` (and optionally `BUILD_ID`) in Coolify to the git commit being deployed. After deploy:
+
+```bash
+curl -sS https://<your-api-host>/api/readyz
+# expect: "gitSha":"<that commit>", "checks":{"database":"ok"}
+```
+
+Live `banco.today` (GCP, Pre-Exec) returned ready **without** `gitSha` — Coolify images from this branch fix that when `GIT_SHA` is set.
 
 ---
 
@@ -269,9 +318,10 @@ If missing, check that Coolify is reading the compose file correctly.
 
 ### Vite SPA (admin-os, dealer-os) shows blank page
 
-1. Verify `BASE_PATH` was set correctly at build time (`/admin/` for admin-os, `/market/` for dealer-os)
+1. Verify dual builds: `/dealer-os/` + `/market/` for dealer-os, `/admin-os/` + `/admin/` for admin-os (`Dockerfile.web`)
 2. Rebuild the `web` service: in Coolify, force a rebuild
 3. Check nginx logs for 404s on asset paths
+4. Confirm `/l/<listing-id>` returns listing HTML (proxied to API), not the landing SPA
 
 ### Database connection refused
 
@@ -318,15 +368,18 @@ Before going live:
 
 - [ ] Set all **required** environment variables (see table above)
 - [ ] Set `BANCO_WEB_URL`, `BANCO_WEBSITE_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` before first build
+- [ ] Set `GIT_SHA` to the deploy commit (verify via `/api/readyz`)
 - [ ] Configure domains in Coolify → Traefik issues TLS certificates automatically
 - [ ] Run database schema push (first time) or migrate (subsequent changes)
-- [ ] Set `PAYMOB_MODE=live` and fill in production Paymob credentials
-- [ ] Verify `CORS_ALLOWED_ORIGINS` includes all frontend domains
-- [ ] Set up object storage (`S3_BUCKET` etc.) for media uploads
+- [ ] Set `PAYMOB_MODE=live` and fill in production Paymob credentials (optional until payments go live)
+- [ ] Verify `CORS_ALLOWED_ORIGINS` includes all frontend domains (include `https://banco.today` when used)
+- [ ] Set up object storage: `OBJECT_STORAGE_PROVIDER=s3` + bucket + **AWS access keys on Hostinger**
+- [ ] Never set `OBJECT_STORAGE_PROVIDER=gcs` (rejected in code)
 - [ ] Configure `RESEND_API_KEY` for transactional email
 - [ ] Set `ERROR_ALERT_WEBHOOK` for production error alerting
-- [ ] Test health endpoints for all services
+- [ ] Test health endpoints + `/l/<id>` + `/dealer-os/` and `/market/`
 - [ ] Verify Expo app points to the production API (`EXPO_PUBLIC_DOMAIN`)
+- [ ] Do **not** delete Replit files; Coolify cutover is a separate owner-approved wave
 
 ---
 
@@ -334,8 +387,10 @@ Before going live:
 
 | Risk | Mitigation |
 |------|-----------|
+| Vite SPAs require `BASE_PATH` at build time | Dual builds in `Dockerfile.web` (`/dealer-os`+`/market`, `/admin-os`+`/admin`) |
+| `/l/` short links on SPA origin | Nginx proxies `/l/`, `/sitemap.xml`, `/robots.txt` to API |
+| Hostinger S3 without IAM | Pass `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` in Coolify env |
 | `NEXT_PUBLIC_*` vars baked at build time | Document rebuild requirement; use internal `http://api:8080` for SSR |
 | First DB migration must be run manually | Documented above; prevents accidental destructive migrations |
-| Vite SPAs require `BASE_PATH` at build time | Set correctly in `Dockerfile.web`; rebuild if path changes |
 | No TLS between internal services | Internal Docker network traffic is trusted; use mTLS if higher security is required |
 | `pnpm-lock.yaml` frozen — update lockfile locally if deps change | Run `pnpm install` locally, commit updated lockfile |

@@ -43,17 +43,30 @@ describe("health probes (P0 smoke)", () => {
     expect(JSON.parse(res.body)).toEqual({ status: "ok" });
   });
 
-  it("GET /api/livez is liveness alias", async () => {
+  it("GET /api/livez is liveness alias (optional deploy pin)", async () => {
     const res = await httpGet("/api/livez");
     expect(res.status).toBe(200);
-    expect(JSON.parse(res.body)).toEqual({ status: "ok" });
+    const body = JSON.parse(res.body) as {
+      status: string;
+      gitSha?: string | null;
+      buildId?: string | null;
+    };
+    expect(body.status).toBe("ok");
+    // Pin is null when GIT_SHA unset — never invent a SHA in tests.
+    expect(body.gitSha === null || typeof body.gitSha === "string").toBe(true);
   });
 
   it("GET /api/readyz is 200 when Postgres is reachable", async () => {
     const res = await httpGet("/api/readyz");
     expect(res.status).toBe(200);
-    const body = JSON.parse(res.body) as { status: string; checks?: Record<string, string> };
+    const body = JSON.parse(res.body) as {
+      status: string;
+      checks?: Record<string, string>;
+      gitSha?: string | null;
+      buildId?: string | null;
+    };
     expect(body.status).toBe("ok");
     expect(body.checks?.database).toBe("ok");
+    expect(body.gitSha === null || typeof body.gitSha === "string").toBe(true);
   });
 });
