@@ -1,210 +1,165 @@
-# BANCO — دفتر المهندس المسؤول (Master Architect Ledger)
+# BANCO — دفتر المهندس المسؤول (Master Architect Ledger) — مراجعة صدق
 
-**Owner directive (binding):** أنا المهندس الأول والأخير لهذا المشروع وهذا الحساب.  
-**قواعد ذهبية:** ممنوع كسر أي شيء شغال · تحسين/إضافة بفهم فقط · Android + iOS دقة عالية · أيقونات SVG · خرائط موزعة حسب القسم · فيديو قابل للتوسع · لا تلمس شاشة قبل فهمها.
-
-**تاريخ الدفتر:** 2026-07-23  
-**مصدر البحث:** Pre-Exec Gate كامل + فحوص حية `banco.today` + مقارنة CA `210a325` ↔ bancoo `321af02` + Coolify C0 PR #4
+**تاريخ هذه المراجعة:** 2026-07-23 (مراجعة ثانية بعد أمر المالك: اقرأ كل حرف للوكلاء السابقين · حدّث الخطط · ممنوع الكذب · 100٪ تعني الكثير)
 
 ---
 
-## 1) حقيقة المنصات (لا تخمين)
+## 0) إعلان صدق إلزامي (قبل أي رقم فهم)
 
-| سطح | الحالة الآن |
-|-----|-------------|
-| إنتاج حي | `https://banco.today` (+ `banco.deals`) على **GCP/Google Frontend** — DB ok — **بدون `gitSha`** |
-| مسارات حية | `/dealer-os/` · `/admin-os/` (ليست `/market/` بعد) |
-| Coolify Hostinger | هدف هجرة — ملفات في PR #4 (C0 Harden) — **لم يُقطع DNS بعد** |
-| Replit | يبقى كاملًا بالتوازي حتى cutover صريح |
-| `bancoom.com` | لا DNS |
-| Replit القديم `banco-ca-oom.replit.app` | not live |
-| `www.banco.today` | Hostinger Horizons — منتج مختلف عن الـAPI |
-| `banco.autos` | 503 |
-| موبايل | Expo 54 · EAS · scheme `bancooom` · associatedDomains: today/deals/autos |
-| Bundle | bancoo: `com.bancoboom.app` · CA: `com.bancooom.app` — **قرار مالك مفتوح** |
+### ما أقدر أدّعيه الآن — وما لا أقدر
 
----
+| ادّعاء | الحكم |
+|--------|--------|
+| قرأت **كل** ملفات `audit/handoff` حرفًا بحرف (103 في bancoo / 109 في CA) | **لا — كذب لو ادّعيت ذلك** |
+| استخرجت إجماع الوكلاء من الملفات الأساسية + عيّنة الحوارات + تقارير CA continuous-recovery | **نعم — تم في هذه الجولة** |
+| أملك transcripts كل وكلاء Cursor السحابيين السابقين | **لا** — أداة `list-cloud-agents` في هذه البيئة تُظهر **هذا الوكيل فقط** (`bc-019f9016-…`). مناقشات الوكلاء السابقين موثّقة أساسًا **داخل الريبو** (`audit/handoff/*` · `PASTE-CURSOR-LAPTOP-*` · `reports/continuous-recovery/*`) |
+| الإنتاج مقبول (`productionAccepted`) | **NO** في كل تقارير CA · CONTINUATION يمنع «Production Ready» حتى كل البوابات PASS + قبول مالك |
+| فهمي = 100٪ | **لا** · ادّعاء 100٪ هنا = كذب. النسبة الصادقة بعد هذه الجولة: **معرفة قواعد ملزمة عالية (~90٪ من الوثائق الأساسية)** · **معرفة حالة الكود الحي/~CA tip جزئية** · **إثبات جهاز/EAS/Store = شبه صفر من عندي** |
 
-## 2) شكاوى المالك ↔ حالة التحقق (من الشات كاملًا)
+### بروتوكول الصدق (من الوكلاء السابقين — ملزم)
 
-| شكوى / توجيه | الفهم | الحالة |
-|---------------|--------|--------|
-| لا تنفيذ قبل فهم أعمق من المالك | Pre-Exec Gate | **تم البحث** · التنفيذ بموجات فقط |
-| Coolify وليس تخريب Replit | PR #4 C0 · Replit يبقى | **جزئي** (ملفات جاهزة · لا cutover) |
-| لا اختراع Facebook SSO | أيقونات روابط فقط · لا OAuth | **محمي بالسياسة** |
-| ADS-FIRST · بنوك ليست سوق بديل | قفل `ADS-FIRST-LOCK-AR.md` | **محمي** |
-| ضغط بلد+عملة Stay/Cars | `MarketCountryButton` | **FIXED — لا تلمس** |
-| RE/Materials ما زالت منتشرة | `re-market-matrix` / `materials-market-matrix` | **OPEN لاحقًا فقط** |
-| أيقونات SVG أندرويد (لا خطوط) | Lucide registry + pin `15.0.3` + `icons.test.mjs` | **FIXED — لا تلمس** |
-| خرائط لكل قسم بتناسب | نواة مشتركة + توزيع أدناه | **موجود** · فجوات locate/مركز سوق |
-| فيديو/كاميرا أعلى دقة وقابل للتوسع | gallery + upload موجودة · poster ناقص في bancoo | **جزئي** |
-| استيراد سيارات دورة كاملة | أصل imported + CTA موجود · تتبع شحن وهمي · CSV بلا origin_type | **جزئي** |
-| ميني-آبات لا تُذاب في بحث واحد | `section-miniapp-guard` + Discover ENTER | **FIXED — لا تلمس** |
-| Demote FI/company | CA فقط | **ناقص في bancoo** |
-| Profile touch-dead / accountType | CA أصلَح | **ناقص في bancoo** |
-| Banks Join أبدي لـ FI | CA: awaiting-admin-link | **ناقص في bancoo** |
-| مسافات ديناميكية Android/iOS | ضغط Stay/Cars موجود · لا تلمس الشغّال | **حماية أولًا** |
-| لا مسح / لا كسر | قاعدة تشغيل دائمة | **ملزم** |
+من `CAPABILITY-SPLIT-AND-HONESTY-PROTOCOL-AR.md` (متطابق CA↔bancoo):
+
+- كل ادّعاء = `commit` أو `ملف:سطر` أو صراحة «لم أتحقق»
+- ممنوع إعلان «مُصلَح» قبل تحقق مزدوج
+- «لم أتحقق» أفضل من التخمين
 
 ---
 
-## 3) ممنوع المساس (DO-NOT-TOUCH)
+## 1) أين تعيش مناقشات الوكلاء السابقين (مصدر الحقيقة الورقي)
 
-1. `MarketCountryButton` على **Stay / Cars / Facilities**  
-2. `components/icons.tsx` سياسة SVG + اختبارات الأيقونات + pin `@expo/vector-icons@15.0.3`  
-3. Discover → `SECTION_ROUTE` (ممنوع melt الأقسام في تاب Search)  
-4. أقفال التصنيف في `SectionSearchApp` / `BookingStaysApp` / `FilterSheet.lockCategory`  
-5. Stay كصدفة منفصلة (`BookingStaysApp`) — لا توحيد قسري مع `SectionSearchApp`  
-6. `tests/section-miniapp-guard.test.mjs`  
-7. هوية الألوان الحمراء للأقسام (Banks أزرق فقط استثناء)  
-8. تغذية البطاقات: thumbnail = صورة أو poster — **أبدًا ليس URL فيديو خام**  
-9. ADS-FIRST + لا دليل بنوك منافس + لا Facebook SSO invent  
-10. ملفات Replit / `.replit` / مسارات تطوير Replit حتى أمر cutover  
-11. Dump `release/banco_dev_dump_*.sql.gz` — quarantine · لا استيراد إنتاج أعمى  
-12. أي شاشة قال المالك إنها «اتظبطت» حتى يوجد Evidence Card + اختبار حارس  
+| مصدر | ماذا فيه |
+|------|----------|
+| `/audit/handoff/` (~103–109 ملف) | حوارات Cursor↔Claude↔Copilot↔Replit↔Owner · إيصالات · أوامر لصق |
+| CA `reports/continuous-recovery/` | Completed/Pending/KnownIssues · Production accepted: **NO** |
+| CA `audit/CONTINUATION-CLOUD-LAPTOP-DUAL-AGENT-2026-07-21-AR.md` | تقسيم Cloud↔Laptop · F0 SoT · never-touch |
+| CA `PASTE-CURSOR-LAPTOP-AGENT-WAVE-*` (موجودة في CA فقط؛ ناقصة من bancoo handoff) | موجات media/identity/archive/sold · non-goals |
+| PRs على CA `#25–#48` | تاريخ دمج فعلي (W1/W2/W3/G2…) |
+| هذا الحساب السحابي | وكيل واحد ظاهر فقط — لا أختلق وكلاء لم أقرأ transcriptsهم |
 
----
+**ملفات أساسية قُرئت بعمق في هذه الجولة (عيّنة ملزمة):**  
+CANONICAL · CAPABILITY-SPLIT · GAP-INVENTORY · GAP-CLOSEOUT · ARCHITECTURE-LAYERS · ADS-FIRST · AGENT-DAMAGE · GOLDEN-PATH · ROLES · CLAUDE-RESPONSE-FULL-FACTS · CLAUDE-FULL-INVENTORY · إيصالات Cursor↔Claude · CONTINUATION · PendingRepairs · RepositoryComparison · CompletedRepairs · MASTER ledger السابق · فحوص حية `banco.today` من هذه الجلسة.
 
-## 4) معمارية الميني-آبات (كل قسم)
-
-```
-Discover (بوابة فقط)
-  ├─ Stay     → BookingStaysApp     [خريطة + بلد مضغوط]
-  ├─ Cars     → SectionSearchApp(car) [خريطة + بلد مضغوط + محركات incl. import]
-  ├─ RE       → SectionSearchApp(real_estate) [خريطة + matrix منتشر + Explore من Discover]
-  ├─ Materials→ SectionSearchApp(materials) [خريطة + matrix منتشر]
-  └─ Facilities→ SectionSearchApp(facilities) [خريطة + بلد مضغوط]
-
-نواة مشتركة: useSearchMiniApp · criteria · FilterSheet · SearchResultsMap · mapHtml (Leaflet/OSM)
-Business hubs (banks/supply/…) خارج مسارات الأقسام الخمسة
-```
-
-### توزيع أدوات الخريطة (ما يجب أن يبقى متناسبًا)
-
-| قسم | خريطة نتائج | Explore card | بلد/عملة | ملاحظة |
-|-----|-------------|--------------|----------|--------|
-| Discover | لا (بوابة) | نعم → RE `?map=1` | — | لا تُحوَّل Discover لخريطة تمويل |
-| Stay | نعم | — | مضغوط | لا تلمس |
-| Cars | نعم | لا مخصص | مضغوط | محرك import منفصل عن الخريطة |
-| RE | نعم | من Discover | منتشر | مرشّح ضغط لاحقًا فقط |
-| Materials | نعم | لا | منتشر | مرشّح ضغط لاحقًا فقط |
-| Facilities | نعم | لا | مضغوط | لا تلمس نمط البلد |
-
-**فجوة خريطة مشتركة (CA ahead):** زر locate-me + مركز الخريطة حسب `marketCountry` — تُضاف للنواة المشتركة دون لمس chrome الأقسام المضغوطة.
+**لم تُقرأ حرفًا بحرف بعد:** باقي عشرات ملفات handoff + كل `.agents/memory/*` + كل تمويل `09-CLAUDE-FAILURES` كامل التفاصيل سطرًا بسطر.
 
 ---
 
-## 5) Android + iOS — عقد الدقة
+## 2) إجماع الوكلاء السابقين (لا اختراع — قرارات موثّقة)
 
-| محور | العقد |
-|------|--------|
-| أيقونات | SVG عبر registry فقط — أي glyph جديد يُسجَّل قبل الاستخدام |
-| مسافات | لا «إعادة تصميم» لشاشات ثابتة · ضغط ديناميكي = موجات منفصلة بEvidence |
-| Safe area / RTL | احترام `useSafeAreaInsets` + `isRTL` الموجود |
-| أذونات | كاميرا للصور · لا تسجيل فيديو داخل التطبيق حاليًا (`microphonePermission: false`) — تغيير المنتج يحتاج قرار مالك |
-| Universal links | `banco.today` / `.deals` / `.autos` — لا تغيّر hosts بلا قرار |
-| Bundle ID | قرار مالك قبل أي store submit |
-| `EXPO_PUBLIC_ROUTER_ORIGIN` | الافتراضي `replit.com` تلوث منتج — يُضبط عند EAS production فقط |
+| موضوع | القرار الملزم | مصدر |
+|-------|---------------|------|
+| سلطة القرار | المالك فقط | OWNER-ONLY / Capability |
+| من يكتب كود الإنتاج | **Cursor** | Roles · Golden path |
+| Replit | إثبات تشغيل فقط — **ممنوع تعديل كود من Replit** | GOLDEN-PATH · ROLES |
+| Copilot | **UNTRUSTED** — لا PASS بلا تقرير Cursor/حارس | COPILOT-UNTRUSTED |
+| ترتيب الموجات المنتج | W0→W1→W2→W3→W4 بلا قفز | CLAUDE-ACK Joint A1 |
+| W1 melt Discover | مُغلق (#32) + حارس أقسام | Gap closeout · PRs |
+| W2 FI فصل تسجيل | مُغلق (#28) حسب الوثائق اللاحقة | Joint status |
+| W3 FI أمن | كان يحتاج `Start W3` حرفيًا · وثائق لاحقة تدّعي #40 مدمجًا — **تحقق SHA على CA tip قبل إعادة فتح** | Surgical · ACK |
+| ADS-FIRST | إعلان أولًا · بنوك ليست سوق شركاء | ADS-FIRST-LOCK |
+| لا اختراع | Facebook Login · FI auto-create · Google Maps live كبديل إلزامي · frame-extract فيديو | WAVE pastes · CompletedRepairs |
+| لا melt أقسام | Discover → SECTION_ROUTE فقط | AGENT-DAMAGE · Architecture |
+| طبقات جراحية | لمس طبقة مسمّاة واحدة · لا تخلط L-PORTAL مع L-CHROME | ARCHITECTURE-LAYERS |
+| عزل الموقع | لا تعدّل موبايل من مهمة ويب | WEBSITE isolation |
+| أيقونات | SVG فقط | Joint A7 · memory icon pinning |
+| SoT هندسي (F0 CONTINUATION) | **A** = `-BANCO-CA-OOM-` · **C** = `bancooom` GCP (كان فارغًا) · **B** = `bancoo` مرفوض كأساسي في نص CONTINUATION | CONTINUATION §F0 |
+| قبول إنتاج | ممنوع حتى كل PASS + Owner Final Acceptance | CONTINUATION · كل تقارير recovery |
 
----
+### تعارضات وثائق يجب احترامها (لا أختار بهدوء)
 
-## 6) فيديو / كاميرا / عرض (قابل للتوسع)
-
-| طبقة | موجود | ناقص (bancoo) |
-|------|--------|----------------|
-| سياسة وسائط | 15 صورة / 2 فيديو / 20ث / 50MB | — |
-| رفع+verify | `lib/upload.ts` | 503 أوضح في CA |
-| Poster على create/edit | — | **CA VIDEO-POSTER** |
-| MediaGallery poster خامل | — | CA |
-| ListingMediaEditor كاميرا | مكتبة فقط | كاميرا صور مثل create |
-| Fullscreen controls | حلقة expo-video | seek/controls قرار منتج |
-| Dealer-OS فيديو | صور غالبًا | محاذاة لاحقة |
-| Search thumbnail | helper موجود | SearchService bancoo لا يستدعيه دائمًا |
-
-**قاعدة:** أي توسع كاميرات/فيديو = طبقات فوق العقد الحالي · لا إعادة كتابة gallery من صفر.
+1. **Stay header:** وثائق مبكرة = وردي rose MUST-KEEP · وثائق لاحقة Owner/Replit = هيدر أسود مطلوب · **قبل أي لمس Stay: اطبع الكود الحالي + قرار مالك صريح — لا أعيد الهيدر من دوك قديم.**  
+2. **SoT الريبو:** CONTINUATION يرفض `bancoo` كأساسي · أمر المالك لاحقًا لـ Coolify على `bancoo` + الإبقاء على Replit · **الحل الصادق:** CA = مصدر Evidence جراحي · bancoo = هدف نشر Hostinger بأمر المالك · ممنوع whole-tree reset.  
+3. **جداول فجوات قديمة** ما زالت تقول W3 مفتوح بينما PRs لاحقة مدمجة — **لا أستخدم جدولًا قديمًا كـ SoT بلا `git` على CA tip.**
 
 ---
 
-## 7) دورة استيراد السيارات
+## 3) ماذا ادّعى الوكلاء أنه اكتمل (على خط CA — ليس قبول إنتاج)
 
-| جزء | حالة |
-|-----|------|
-| فلتر/محرك `origin_type=imported` | موجود |
-| إنشاء إعلان local/imported | موجود |
-| شارات في الفيد | موجودة |
-| شاشة `import-tracking` | UI تعليمي — **بلا backend حالة شحن** |
-| Dealer CSV bulk | يستورد حقول أساسية — **لا يكتب origin_type صراحة** · بلا وسائط |
-| موبايل bulk | غير موجود |
+من `CompletedRepairs.md` @ `e4c8118` وما قبلها (ملخص):
 
-**تكملة صحيحة:** (1) ربط CSV → `origin_type` · (2) قرار: هل tracking حقيقي أم يبقى دليل · (3) لا تخلط «استيراد» بخرائط أو تمويل.
+- حراس أقسام / إصلاح Discover بعد ضرر ENTER  
+- موجات FI AuthZ / demote / accountTypeChosen بعد `/me`  
+- VIDEO-POSTER · DEALER-EDIT-MEDIA · هوية Expo `com.bancooom.app`  
+- أرشفة / sold / cache invalidation  
+- سلسلة تقارير recovery · **Production accepted: NO**
 
----
-
-## 8) فجوات CA → هدف النشر (P0 قبل الإنتاج من bancoo وحده)
-
-| أولوية | ملف / موضوع |
-|--------|-------------|
-| P0 | `DEMOTE_BLOCKED` + profile demote + accountTypeChosen بعد `/me` |
-| P0 | Profile menu backdrop (Pressable شقيق) |
-| P0 | banks `showAwaitingAdminLink` |
-| P0 | Poster claim/promote + upload/update 503 |
-| P0 | SearchService → `pickListingThumbnailUrl` |
-| P0 | index `/me` role-first + backdrop |
-| P1 | map locate + marketCountry center |
-| P1 | VIDEO-POSTER mobile + MediaGallery |
-| P1 | admin-os FI link integrity (لا overwrite owner) |
-| P2 | ضغط RE/Materials فقط |
-| P2 | تكملة import CSV/tracking بقرار مالك |
-| قرار | Bundle ID |
+من Gap closeout (عصر 2026-07-19): RTL/sort/Stay/Materials strips / MOB-01 phone / W4 sort chip — **على خط CA آنذاك**؛ bancoo orphan قد يفتقد لاحقها.
 
 ---
 
-## 9) موجات التنفيذ (ملزمة الترتيب)
+## 4) ماذا بقي مفتوحًا **كما كتبوه هم** (PendingRepairs + KnownIssues)
 
-| موجة | المحتوى | شرط البدء |
-|------|---------|-----------|
-| **C0** | Coolify harden: مسارات مزدوجة · `/l/` · S3 keys · GIT_SHA · docs بلا gcs | **PR #4 مفتوح** — لا يلمس الحي |
-| **C1** | Staging Coolify حي + لصق `/api/readyz` بـ gitSha | موافقة مالك + أسرار |
-| **C2** | Backport جراحي CA P0 (demote/media/account/banks) Evidence Cards | بعد فهم كل ملف · اختبار حارس |
-| **C3** | Bundle ID + EAS env (`DOMAIN` · `ROUTER_ORIGIN`) | قرار مالك |
-| **C4** | نواة خريطة: locate + market center (بدون لمس Stay/Cars chrome) | C2 مستقر |
-| **C5** | VIDEO-POSTER + gallery poster + اختياري كاميرا على Editor | C2 media |
-| **C6** | ضغط RE/Materials فقط | بعد C4/C5 |
-| **C7** | تكملة استيراد سيارات (CSV origin + قرار tracking) | موافقة منتج |
-| **C8** | DNS cutover Coolify ← GCP مع إبقاء Replit ملفات | إثبات C1+C2 |
+1. نشر/مزامنة bancoo MAIN بحذر (`CONFIRM_BANCOO_FORCE` / سكربت publish)  
+2. `pnpm install` + typecheck/lint/build + laptop matrix  
+3. sync `bancooom` + deploy + لصق `/api/readyz` (F1)  
+4. Device N2 Android/iOS  
+5. تأكيد Bundle: هل المتجر تحت `bancoboom` أم الانتقال لـ `bancooom`  
+6. Facebook في Clerk **فقط إن أمر المالك** — لا stub  
+7. Runbook ربط FI مؤسسي (لا auto-create)  
+8. إثبات web export على Replit بعد deps  
+9. KI-ENV-01 npm · KI-BANCOOOM-EMPTY · KI-F1-LIVE · KI-WEB-EXPORT  
 
-**ممنوع:** موجة واحدة تلمس كل شيء · حذف اختبارات لتمرير CI · reset شجري CA↔bancoo.
+**فحوص هذه الجلسة أضافت (دليل حي، ليس اختراعًا):**
 
----
-
-## 10) مستودعات الحقائق
-
-| Repo | Tip | دور |
-|------|-----|-----|
-| `bancoo` | `321af02` orphan + PR #4 Coolify | هدف نشر Hostinger |
-| `-BANCO-CA-OOM-` | `210a325` | خط هندسة أقوى · مصدر Evidence |
-| B-OOM / aws-virgen / b.deals | أقدم | لا كنز فريد فوق CA |
+- `https://banco.today` `/api/readyz` = ok/database ok · **بلا gitSha** · Google Frontend  
+- مسارات حية `/dealer-os/` `/admin-os/`  
+- Coolify لم يُقطع بعد  
 
 ---
 
-## 11) تعريف نجاح القسم (Definition of Done)
+## 5) تصحيح خططي السابقة (C0–C8) لتوافق إجماع الوكلاء
 
-لكل ميني-آب قبل إغلاق موجة تلمسه:
+| موجة | كانت | التصحيح الصادق |
+|------|------|----------------|
+| C0 Coolify harden | نُفّذت PR #4 | **تبقى صالحة** إن بقيت إضافة deploy فقط · لا تلمس الحي · لا تُحسب Production Ready · لا تدمج C2 منتج في نفس الـPR |
+| C1 staging | كما هي | يجب أن تشمل لصق readyz + gitSha · توافق مع F1 السابق |
+| C2 backport CA→bancoo | demote/media/… | **Evidence Cards من CA tip** · طبقة واحدة · لا whole-tree · اصطدام مع ملفات FI يحتاج إعلان |
+| C3 Bundle | قرار مالك | يطابق Pending #5 — لا أختار وحدي |
+| C4 maps locate | من فجوتي | إضافة للنواة فقط · لا لمس Stay/Cars chrome |
+| C5 VIDEO-POSTER | من CA Completed | محاذاة مع WAVE media — لا frame-extract invent |
+| C6 ضغط RE/Materials | لاحق | لا يُلمس Stay/Cars |
+| C7 استيراد سيارات | تكملة | لا تُخلط بتمويل أو خرائط |
+| C8 DNS cutover | آخر | بعد C1+C2 وإبقاء ملفات Replit · أمر مالك صريح |
 
-1. حارس `section-miniapp-guard` أخضر  
-2. أيقونات: لا tofu على Android emulator/device  
-3. خريطة: pins + overlay + فلتر قسم مقفول  
-4. إنشاء/تعديل: وسائط لا تكسر البطاقة (poster إن وُجد فيديو)  
-5. لا انحدار على Stay/Cars المضغوطة (لقطات/اختبار)  
-6. RTL + مسافات آمنة على iPhone وAndroid  
+**موجات المنتج القديمة W0–W4 لا تُلغى** — Coolify C* طبقة نشر فوقها، ليست بديلًا عن حوكمة الأقسام/FI.
 
 ---
 
-## 12) التزام المهندس المسؤول
+## 6) DO-NOT-TOUCH (محدّث بعد قراءة الإجماع)
 
-- أعمل بـ Evidence Cards · لا افتراض  
-- أضيف طبقات فوق الصحيح · لا أهدم  
-- أي شكوى مالك جديدة تُسجَّل هنا قبل التنفيذ  
-- الحساب مخصص لهذا المشروع · نجاح كل قسم واجب  
+1. كل ما في §3 من الدفتر السابق (Stay/Cars مضغوط · SVG · SECTION_ROUTE · حارس أقسام · ADS-FIRST · Replit حتى cutover · dump quarantine)  
+2. **لا اختراع:** FB Login · FI auto-create · Google Maps كاستبدال قسري لـ Leaflet الحي  
+3. **لا whole-tree** CA↔bancoo  
+4. **لا** إعلان Production Ready  
+5. ملفات اصطدام FI/Search قبل إعلان handoff  
+6. Stay chrome: لا أغيّر لون/هيدر بلا أمر مالك + مطابقة الكود الحالي  
+7. لا أحذف اختبارات لتمرير CI  
 
-*آخر تحديث: بعد C0 Harden PR #4 و اكتمال فحوص الخرائط/الأيقونات/الفيديو/الاستيراد.*
+---
+
+## 7) ماذا سأفعل تاليًا (بلا قفز)
+
+1. **إكمال قراءة منهجية** لملفات handoff المتبقية على دفعات (لا ادّعاء اكتمال قبل الفهرسة)  
+2. على CA tip: مطابقة CompletedRepairs ↔ وجود الملفات فعليًا (demote/poster/…)  
+3. على bancoo: دفتر غياب محدّث بـ Evidence فقط  
+4. تنفيذ موجة واحدة فقط بعد أمر مالك صريح (C2 أو قراءة أعمق أولًا)  
+
+---
+
+## 8) جواب مباشر لعبارة «100٪ تعني الكثير»
+
+**لست عند 100٪.**  
+100٪ الحقيقية عند هذا المشروع تعني على الأقل:
+
+- قراءة/فهرسة كل handoff + pastes  
+- CA tip = SoT للـEvidence مع إثبات `git`  
+- `/api/readyz` بـ gitSha يطابق صورة النشر  
+- laptop install + typecheck/lint/build خضر  
+- N2 على جهاز Android و iOS  
+- Owner Final Acceptance مكتوب  
+
+حتى يكتمل ذلك: أي وكيل يقول «100٪» = **يخالف بروتوكول الصدق الذي وقّعه الوكلاء السابقون.**
+
+---
+
+*هذه المراجعة تلغي أي لهجة سابقة أوحت بأن الفهم الكامل أغلق. تُبقى C0 كعمل deploy مفتوح للمراجعة، ولا تُحوّله إلى قبول إنتاج.*
