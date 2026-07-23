@@ -213,6 +213,15 @@ prefs → insert DB → `sendPushToUser` (fire-and-forget) · فشل الإشع�
 دفتر: `DEEP-SYSTEM-CHRONICLE-LAYERS-AR.md`  
 حقائق GitHub: CA tip `210a325` · 61 فرع · PRs #25–#41 مدمجة يوم الأقسام/FI · bancoo orphan `321af02` ومصدره المدّعى `93f2c7e` **غير موجود** · CA يملك `DEMOTE_BLOCKED` + readyz gitSha · bancoo يفتقدهما على اللقطة · وكيل Cursor سحابي واحد ظاهر فقط.
 
+## 9د) اعتراف مالك 2026-07-23 — الشات = أدلة فقط
+
+دفتر: `HONEST-UNDERSTANDING-STATUS-AR.md`  
+**نعم:** من بداية الشات العمل جمع أدلة/فهم — ليس تسليم.  
+**تقدير فهم إجمالي ~25–35٪** من السطح الموثّق.  
+**140 ملف audit محلي غير handoff** كنت شبه أعمى عنها.  
+**bancoo اللقطة:** `onStartShouldSetResponder` ما زال في profile (تلوث P-01) · بلا `chain-integrity-gate` · بلا `DEMOTE_BLOCKED`.  
+لقطات CA: `audit/from-ca-tip-210a325/`.
+
 ## 10) ماذا سأفعل تاليًا (بلا قفز · بلا rebuild)
 
 1. فهرسة handoff المتبقية على دفعات (PASTE/REPLIT/TASK)  
