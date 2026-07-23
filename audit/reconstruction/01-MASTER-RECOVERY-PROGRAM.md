@@ -10,11 +10,19 @@
 
 ## 0) EVIDENCE CARDS (conflicts — resolve before Phase C)
 
-### EC‑0 — Which repo is the target? (CONTRADICTION, owner input required)
-- **Claim A (top of owner brief):** the *new* repo `bancotoday` is the single SoT; `bancoo` is comparison‑only.
-- **Claim B (bottom of same brief):** «المستودع الرئيسي `bancoo` … سيتم الإصلاح عليه» — repairs happen on **`bancoo`**; others are comparison.
-- **Evidence:** `bancotoday` = **EMPTY** (`gh repo view` → `isEmpty:true`). `bancoo` = populated but **orphan/behind CA**.
-- **Status:** **UNKNOWN — needs one owner decision.** Options: (1) repair `bancoo` in place; (2) build `bancotoday` fresh from CA then cut over; (3) treat `bancoo` as working repo now and promote to `bancotoday` later. **Confidence n/a (owner call).**
+### EC‑0 — Which repo is the target? (RESOLVED by owner 2026‑07‑23)
+- **Owner decision (2026‑07‑23):** build the canonical copy in **`bancotoday`**, sourced from the verified line — *"انت هتعمل النسخة هنا [bancotoday]"*.
+- **Resolution:** target = **`bancotoday`** (empty); baseline source = **CA `-BANCO-CA-OOM-` @ `210a325`** (verified SoT, EC‑1); **NOT** `bancoo` (polluted orphan). **Confidence: High.**
+- **BLOCKER (verified 2026‑07‑23):** the cloud agent token `cursor[bot]` has **no write access to `bancotoday`** → `git push` returns **HTTP 403** ("Permission to waelzaid66-max/bancotoday.git denied to cursor[bot]"). Same class as the documented `aws-virgen` 403 (`docs/AWS_VIRGEN_FULL_PUBLISH.md`).
+  - **Unblock (owner):** GitHub → Settings → GitHub Apps → **Cursor** → Repository access → add **`bancotoday`** (or grant the Cloud Agent environment access to it). Then re‑run this agent.
+  - **Ready‑to‑run once unblocked (from a full CA clone):**
+    ```
+    git clone https://github.com/waelzaid66-max/-BANCO-CA-OOM-.git src && cd src
+    git remote add bancotoday https://github.com/waelzaid66-max/bancotoday.git
+    git push bancotoday HEAD:main     # canonical baseline = CA 210a325 (full history)
+    git push bancotoday --tags        # v1.0.0-rc … v1.4.0-stable
+    ```
+  - CA clone verified this session: **568 commits, 10 tags, tip `210a325`**.
 
 ### EC‑1 — Engineering Source of Truth
 - **Resolution:** **CA `-BANCO-CA-OOM-` @ `210a325`** (newest continuous line + only repo tagged through `v1.4.0-stable` *and* carrying post‑tag recovery). **Confidence: High (verified).**
