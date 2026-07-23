@@ -2,8 +2,8 @@
 
 > Round-2 note: many PASTE/REPLIT files marked DEEP-READ via structured harvest (facts extracted). Not every paragraph of every cancelled paste was re-litigated line-by-line after SoT supersession.
 
-Total files: 107
-Deep-read this pass: 107
+Total files: 109
+Deep-read this pass: 109
 Not yet deep-read: 0
 
 | File | Status |
@@ -12,6 +12,8 @@ Not yet deep-read: 0
 | `SECTION-BY-SECTION-FINISH-HARVEST-AR.md` | DEEP-READ-2026-07-23 |
 | `GLOBAL-DELIVERY-FINISH-HARVEST-AR.md` | DEEP-READ-2026-07-23 |
 | `DEEP-SYSTEM-CHRONICLE-LAYERS-AR.md` | DEEP-READ-2026-07-23 |
+| `HONEST-UNDERSTANDING-STATUS-AR.md` | DEEP-READ-2026-07-23 |
+| `CURSOR-AGENT-FULL-CONVERSATION-FACTS-AR.md` | DEEP-READ-2026-07-23 |
 | `ADS-FIRST-LOCK-AR.md` | DEEP-READ-2026-07-23 |
 | `AGENT-DAMAGE-AND-DISCOVER-RESTORE-AR.md` | DEEP-READ-2026-07-23 |
 | `ARCHITECTURE-LAYERS-PER-MINIAPP-AR.md` | DEEP-READ-2026-07-23 |

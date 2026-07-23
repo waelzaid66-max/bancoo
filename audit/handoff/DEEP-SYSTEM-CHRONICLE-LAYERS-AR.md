@@ -95,8 +95,9 @@ Phases 1–9 لـ`banco-web` ثم لاحقًا **#26** مشروع `banco-website
 | **#3–4** | GCP CI / sync docs قديمة |
 
 ### 2026-07-21 — bancoo orphan handoff
-`321af02` لقطة كاملة + dump · **بلا تاريخ commits السابق** · المصدر المدّعى `93f2c7e` يحتاج مطابقة على CA (قد لا يساوي tip `210a325`).  
-CA واصل إلى `210a325` (media/identity fingerprint) — **أحدث من لقطة bancoo main.**
+`321af02` لقطة كاملة + dump · **بلا تاريخ commits السابق**.  
+المصدر المدّعى في رسالة الكوميت: `93f2c7e` — **`gh` على CA وbancoo: No commit found (HTTP 422)**. أي أن اللقطة **يتيمة فعليًا** ولا تُطابق SHA معلنًا على الريبوهات المتاحة.  
+CA tip الحقيقي وقت الفحص: **`210a325`** (media/identity fingerprint) — أحدث مسار هندسي معروف.
 
 ### 2026-07-23 — هذا الوكيل على bancoo
 | PR | الحالة | المحتوى |
