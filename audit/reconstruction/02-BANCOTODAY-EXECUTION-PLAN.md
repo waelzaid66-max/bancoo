@@ -11,6 +11,17 @@
 ## 0) HARD PRECONDITION (blocking)
 `git push` → `bancotoday` returns **403** — verified 2026‑07‑23 for **both** `cursor[bot]` (app not granted) **and** the owner PAT (`denied to waelzaid66-max` → token lacks `repo`/Contents:write). `bancotoday` currently holds only a placeholder `Initial commit` (README). **Nothing below can execute until a WRITE credential exists.** Unblock: grant Cursor app (`https://github.com/settings/installations`) **or** a Classic PAT with `repo` scope. Then `bootstrap-bancotoday.sh` runs (force main to replace the placeholder).
 
+## 0.2) W0 PARTIAL EXECUTION (2026‑07‑23) — canonical staged on writable repo
+Because `bancotoday` push is blocked (403; every provided token lacks `Contents:write`), the verified canonical baseline **CA `210a325` (full history + tags)** was staged where the agent DOES have write:
+- **`bancoo` branch `canonical-ca-210a325`** = exact CA baseline (568 commits). Durable, ready to **mirror → `bancotoday:main`** with one force‑push once a `Contents:write` token exists:
+  ```
+  git clone https://github.com/waelzaid66-max/bancoo.git && cd bancoo
+  git checkout canonical-ca-210a325
+  git remote add bt https://x-access-token:<WRITE_TOKEN>@github.com/waelzaid66-max/bancotoday.git
+  git push --force bt HEAD:main && git push bt --tags
+  ```
+- **Required token (fine‑grained):** resource owner `waelzaid66-max` · repo `bancotoday` · **Contents: Read and write** · **Workflows: Read and write** · Metadata: Read.
+
 ## 0.1) W0 pre‑flight AUDIT of the canonical baseline (executed 2026‑07‑23, evidence)
 Run on CA `210a325` (the exact bytes destined for `bancotoday`), Node 24 / pnpm 11.9:
 | Gate | Result |
