@@ -8,6 +8,13 @@
 
 ---
 
+## SEC‑001 — CRITICAL SECURITY FINDING (2026‑07‑23) — supersedes the "mirror CA" approach
+- **Root cause:** CA `-BANCO-CA-OOM-` (a **PUBLIC** repo) has **real secrets committed in `.replit`** history (commit `da1e9ebb "Add Replit configuration"`): `CLERK_SECRET_KEY, EXPO_TOKEN, RESEND_API_KEY, SESSION_SECRET, PAYMOB_SECRET_KEY, PAYMENT_CONFIG_ENCRYPTION_KEY`, etc.
+- **Agent error (owned):** pushing CA full history to `bancoo:canonical-ca-210a325` re‑exposed these → GitHub secret scanning revoked the Resend key. **Branch deleted; remediated.** Lesson: NEVER push foreign history without a secret scan first.
+- **Correction to prior plan:** **DO NOT mirror CA history** into `bancotoday` — it leaks secrets. `bancoo main` (`321af02`) already did the right thing: **secrets stripped + history excluded**. The canonical must be built as a **secret‑free working tree with clean history**, not a raw CA clone.
+- **URGENT owner actions:** (1) **Rotate ALL** secrets listed above — assume compromised (public). (2) Make CA **private** or scrub its history (`git filter-repo`) and purge `.replit` from tracking. (3) Add `.replit`/secret files to `.gitignore`; move all secrets to env/Replit Secrets only; add secret‑scanning + pre‑commit hooks.
+- **Revised W0:** baseline = latest **secret‑free** tree (CA code content minus committed secrets, verified) → fresh clean initial commit into `bancotoday` (no leaked history) → then waves.
+
 ## 0) HARD PRECONDITION (blocking)
 `git push` → `bancotoday` returns **403** — verified 2026‑07‑23 for **both** `cursor[bot]` (app not granted) **and** the owner PAT (`denied to waelzaid66-max` → token lacks `repo`/Contents:write). `bancotoday` currently holds only a placeholder `Initial commit` (README). **Nothing below can execute until a WRITE credential exists.** Unblock: grant Cursor app (`https://github.com/settings/installations`) **or** a Classic PAT with `repo` scope. Then `bootstrap-bancotoday.sh` runs (force main to replace the placeholder).
 
