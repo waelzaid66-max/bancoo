@@ -201,6 +201,13 @@ prefs → insert DB → `sendPushToUser` (fire-and-forget) · فشل الإشع�
 دفتر كامل: `SECTION-BY-SECTION-FINISH-HARVEST-AR.md`  
 **حي:** حارس 46/46 · Stay أسود · لا fake 67 · Bundle `com.bancoboom.app` · `DEMOTE_BLOCKED` غائب من bancoo · أيقونات إشعار ناقصة لـ investment/global_supply/payment/subscription.
 
+## 9ب) حصاد تسليم عالمي — جولة 2 (نفس اليوم)
+
+دفتر: `GLOBAL-DELIVERY-FINISH-HARVEST-AR.md`  
+فحص إضافي: ~65 handoff كانت INDEXED · wallet/ads/markets/admin/dealer/website · readyz حي بلا gitSha · BFF عملات 8+USD/EUR مقابل أسواق موبايل أوسع · MOB-07 map latch DONE حي.
+
+**مسؤولية:** فينش+تجميع+مسار برودكشن صادق لتسليم شركة عالمية — **ليس** ادّعاء أن التسليم اكتمل.
+
 ## 10) ماذا سأفعل تاليًا (بلا قفز · بلا rebuild)
 
 1. فهرسة handoff المتبقية على دفعات (PASTE/REPLIT/TASK)  
