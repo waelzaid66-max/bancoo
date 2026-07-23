@@ -7,6 +7,9 @@ Running log of deep per-domain audits + surgical assembly on `bancotoday` (= str
 |---|---|---|---|
 | W1 hardening | Lint green: escape markdown pipe `\\|` in `generate-production-protocol-reports.mjs`; drop unused `pnpm` var in `generate-production-validation-standard.mjs` | `397b49e` | lint 0 ✅ · typecheck 0 ✅ · secret-scan clean |
 | E2 Coolify deploy | Added Coolify config to bancotoday (was absent): `docker-compose.coolify.yml`, `deploy/coolify/{Dockerfile.api,banco-web,banco-website,web,nginx.conf}`, `docs/DEPLOY_COOLIFY.md`. Hardened migrate `push`→**`push-force`** (non-interactive, per `.agents/memory/post-merge-drizzle-push.md`); `gcs` already rejected (s3\|replit) | `88cec6c` | additive deploy files (no app-code) · secret-scan clean |
+| E1 Facebook SSO + latent icon fix | `profile.tsx`: add `oauth_facebook` strategy + Facebook button (mirrors Google/Apple, respects menu/demote locks) + `oauthLoading` type; `i18n.ts`: `continueWithFacebook` EN+AR (parity); **fix latent bug** — `banks.tsx` used unmapped `shield-check-outline` → added registry alias in `icons.tsx` (was rendering fallback on the Banks/FI screen) | `405abf7` | typecheck 0 · icons+i18n guards **7/7** · secret-scan clean |
+
+**Second-review "forgotten work" check (owner request):** CA open PRs = stale/present/docs only; near-me/geo present; **no missing feature**. One genuine latent bug found via guard (unmapped `shield-check-outline` on Banks screen) — **fixed** in `405abf7`. Note: E1 Facebook button needs owner's Meta app + Clerk provider enabled to function (owner said FB is activated in Clerk → should work on config).
 
 **Memory locks consulted (per owner): `banco-scheme-canonical` (bancooom/com.bancooom.app), `post-merge-drizzle-push` (push-force non-interactive), `github-push-auth-stale` (clean snapshot, no secret history — matches bancotoday build).**
 
