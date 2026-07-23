@@ -6,6 +6,9 @@ Running log of deep per-domain audits + surgical assembly on `bancotoday` (= str
 | Wave | Change | Commit | Gates |
 |---|---|---|---|
 | W1 hardening | Lint green: escape markdown pipe `\\|` in `generate-production-protocol-reports.mjs`; drop unused `pnpm` var in `generate-production-validation-standard.mjs` | `397b49e` | lint 0 ✅ · typecheck 0 ✅ · secret-scan clean |
+| E2 Coolify deploy | Added Coolify config to bancotoday (was absent): `docker-compose.coolify.yml`, `deploy/coolify/{Dockerfile.api,banco-web,banco-website,web,nginx.conf}`, `docs/DEPLOY_COOLIFY.md`. Hardened migrate `push`→**`push-force`** (non-interactive, per `.agents/memory/post-merge-drizzle-push.md`); `gcs` already rejected (s3\|replit) | `88cec6c` | additive deploy files (no app-code) · secret-scan clean |
+
+**Memory locks consulted (per owner): `banco-scheme-canonical` (bancooom/com.bancooom.app), `post-merge-drizzle-push` (push-force non-interactive), `github-push-auth-stale` (clean snapshot, no secret history — matches bancotoday build).**
 
 ## Domain audits (evidence, read-only)
 
