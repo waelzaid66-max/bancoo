@@ -1,6 +1,22 @@
 # BANCO — دفتر المهندس المسؤول (Master Architect Ledger) — مراجعة صدق
 
-**تاريخ هذه المراجعة:** 2026-07-23 (مراجعة ثانية بعد أمر المالك: اقرأ كل حرف للوكلاء السابقين · حدّث الخطط · ممنوع الكذب · 100٪ تعني الكثير)
+**تاريخ هذه المراجعة:** 2026-07-23 (مراجعة ثالثة بعد قفل المالك: فينش + لمسات أخيرة + إطلاق · **ممنوع إعادة بناء أي شيء**)
+
+---
+
+## −1) قفل المالك الملزم — FINISH · لا REBUILD
+
+**نص المالك (ملخّص ملزم):** صيانات سابقة حصلت · النسخة الأخيرة المعروضة على الريبو الموجَّه كانت هدف أقوى خط مستقر · هذا الوكيل للفينش والتجميع والإطلاق الكامل · يتعلّم من كل خطأ وفهم غلط · يعرف كل ريبوهات · يفهم ليش كل قسم · خاصة الرئيسية والإشعارات · بعد الفينش نحسّن ونكمّل · **ممنوع إعادة بناء شيء.**
+
+| قاعدة | المعنى التشغيلي |
+|-------|------------------|
+| **FINISH / ASSEMBLE** | لمسات أخيرة · تجميع Evidence · Harden نشر · إغلاق فجوات مثبتة فقط |
+| **ممنوع REBUILD** | لا إعادة كتابة Home كـDiscover · لا نظام إشعارات جديد · لا melt أقسام · لا whole-tree CA↔bancoo · لا «تنظيف» يمسح بوابات |
+| **أقوى خط مستقر** | CA tip = Evidence جراحي · bancoo = هدف Coolify بأمر المالك · لا مسح إنجازات الصيانة السابقة |
+| **بعد الفينش** | تحسين/تكميل موجة بموجة — ليس إعادة اختراع المنصة |
+| **أخطاء أُنسى** | ادّعاء 100٪ · لهجة greenfield · اختراع FB SSO / FI auto-create · Coolify = قبول إنتاج |
+
+مصدر حوكمة مطابق: `CURSOR-FINISH-GOVERNANCE-PRINCIPLES-AR.md` · `PROJECT-PHILOSOPHY-DEPLOY-SECTION-GOALS-AR.md` (Additive only).
 
 ---
 
@@ -137,16 +153,59 @@ CANONICAL · CAPABILITY-SPLIT · GAP-INVENTORY · GAP-CLOSEOUT · ARCHITECTURE-L
 
 ---
 
-## 7) ماذا سأفعل تاليًا (بلا قفز)
+## 7) الصفحة الرئيسية — ليش موجودة (من الكود · ليس اختراعًا)
 
-1. **إكمال قراءة منهجية** لملفات handoff المتبقية على دفعات (لا ادّعاء اكتمال قبل الفهرسة)  
-2. على CA tip: مطابقة CompletedRepairs ↔ وجود الملفات فعليًا (demote/poster/…)  
-3. على bancoo: دفتر غياب محدّث بـ Evidence فقط  
-4. تنفيذ موجة واحدة فقط بعد أمر مالك صريح (C2 أو قراءة أعمق أولًا)  
+**الملف:** `artifacts/banco-mobile/app/(tabs)/index.tsx` → المكوّن `FeedScreen` (تبويب Home).
+
+| حقيقة | الدليل |
+|-------|--------|
+| Home = **Feed / browse surface** | تغذية `getFeed` + rails (`getTrending` / `getRecommendations`) + CategoryTabs + بطاقات |
+| **ليست** Discover | Discover يعيش تحت Search tab (`SearchDiscover` → `SECTION_ROUTE`) — فصل مثبت بعد ضرر ENTER |
+| لا شريط بحث داخل Home | الفرز غير «Recommended» يفتح Search بمسار حقيقي (`/(tabs)/search`) |
+| شعار BANCO بطولي في الهيدر | `BancoLogo` + `HeaderSpark` (B-OOM في الفجوة فقط — لا ينافس الشعار) |
+| جرس إشعارات على Home | badge unread من `useListNotifications` + `setBadgeCountAsync` |
+| صدق جغرافي | `detectCity` فقط إن إذن GPS موجود مسبقًا — وإلا rail مدينة السوق السائدة بلا ادّعاء قرب كاذب |
+
+**فينش Home (مسموح):** flicker/rails/geo honesty · badge · أداء FlashList — **بلا إعادة تصميم كـDiscover أو دمج Search.**
+
+**إعادة بناء Home = ضرر** (نفس فئة ضرر Discover ENTER في `AGENT-DAMAGE-AND-DISCOVER-RESTORE-AR.md`).
 
 ---
 
-## 8) جواب مباشر لعبارة «100٪ تعني الكثير»
+## 8) الإشعارات — شغل رهيب موجود · فينش فقط
+
+**الخنق الواحد (API):** `NotificationService.createNotification`  
+prefs → insert DB → `sendPushToUser` (fire-and-forget) · فشل الإشعار لا يكسر الرسالة/الـlead.
+
+**الأنواع المدعومة في الكود:** message · lead · system · rfq · new_match · price_drop · comment · review · investment · global_supply · booking · payment_* · subscription_expiring.
+
+**التوجيه الموحّد (موبايل):** `artifacts/banco-mobile/lib/notificationRouting.ts`  
+نفس الوجهة لـ in-app (`notifications.tsx`) و remote push (`usePushNotifications`) — Task #102.
+
+**ما بقي للفينش (إضافة · لا rebuild):**
+
+| بند | طبيعة |
+|-----|--------|
+| تأكيد `listing_id` على كل مسارات الرسائل/التعليقات حيث ينقص | Evidence من CA إن وُجد فرق · طبقة routing فقط |
+| تفضيلات UI لأنواع booking/billing إن ناقصة في الشاشة | Additive prefs UI |
+| أيقونات أنواع ناقصة في `iconForType` (investment/global_supply/payment) | Additive switch cases |
+| EAS / جهاز حقيقي لـ push | OPS مالك — Expo Go محدود SDK 53+ |
+| تحذير `expo-notifications` في Expo Go | معروف · ليس عطل منتج على build |
+
+**ممنوع:** نظام إشعارات موازٍ · حذف `createNotification` chokepoint · اختراع قنوات خارج Expo بدون أمر مالك.
+
+---
+
+## 9) ماذا سأفعل تاليًا (بلا قفز · بلا rebuild)
+
+1. فهرسة/قراءة handoff المتبقية على دفعات  
+2. CA tip Evidence لغياب bancoo (demote/media/…) — بطاقة واحدة  
+3. موجة واحدة فقط بعد أمر مالك (C1 staging أو C2 surgical أو polish Home/notif)  
+4. لا merge cutover DNS بلا بوابات + قبول مالك  
+
+---
+
+## 10) جواب مباشر لعبارة «100٪ تعني الكثير»
 
 **لست عند 100٪.**  
 100٪ الحقيقية عند هذا المشروع تعني على الأقل:
