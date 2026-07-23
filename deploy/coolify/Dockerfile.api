@@ -1,0 +1,68 @@
+# syntax=docker/dockerfile:1.7
+###############################################################################
+# BANCO API server — Coolify / Hostinger VPS production image.
+#
+# Identical logic to the repo-root Dockerfile and deploy/aws/Dockerfile.api,
+# but uses BuildKit cache mounts for faster CI rebuilds on Coolify.
+#
+# Build context = REPOSITORY ROOT:
+#   docker build -f deploy/coolify/Dockerfile.api -t banco-api .
+#
+# Node 24 REQUIRED — pnpm@11.9 uses node:sqlite.
+###############################################################################
+
+# ---- builder: install api subtree, bundle with esbuild ----------------------
+FROM node:24-bookworm-slim AS builder
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
+WORKDIR /app
+
+# Copy the whole workspace source (minus node_modules/.git/dist via .dockerignore).
+# Required because pnpm --frozen-lockfile validates every workspace member against
+# the lockfile — omitting banco-mobile/etc aborts the install.
+COPY . .
+
+# Install ONLY the api-server subtree (api + lib/* deps).
+# BuildKit cache mount keeps the pnpm store across builds → much faster rebuilds.
+RUN --mount=type=cache,id=pnpm-api,target=/pnpm/store \
+    pnpm install --frozen-lockfile --filter "@workspace/api-server..."
+
+# esbuild bundles src/ → dist/index.mjs; native/dynamic packages stay external.
+RUN pnpm --filter @workspace/api-server run build
+
+# ---- runner: minimal image with only what the server needs ------------------
+FROM node:24-bookworm-slim AS runner
+ENV NODE_ENV=production
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tini ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy pnpm-linked trees verbatim (root store + api-server symlinks).
+# This keeps module resolution intact without needing `pnpm deploy`.
+COPY --from=builder /app/node_modules            ./node_modules
+COPY --from=builder /app/package.json            ./package.json
+COPY --from=builder /app/artifacts/api-server/node_modules  ./artifacts/api-server/node_modules
+COPY --from=builder /app/artifacts/api-server/package.json  ./artifacts/api-server/package.json
+COPY --from=builder /app/artifacts/api-server/dist          ./artifacts/api-server/dist
+
+# Non-root user.
+RUN useradd -r -u 10001 -g root banco \
+ && chown -R banco:root /app
+USER banco
+
+WORKDIR /app/artifacts/api-server
+
+ENV PORT=8080
+EXPOSE 8080
+
+# Liveness probe — does NOT touch the DB.
+# Full API is mounted under /api, so health is at /api/healthz.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/api/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "--enable-source-maps", "dist/index.mjs"]

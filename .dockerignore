@@ -23,3 +23,9 @@ database_backup.dump.gz
 attached_assets
 # Deployment docs don't belong inside the runtime image.
 deploy/aws/reports
+deploy/gcp/reports
+# Release artifacts (docs + SQL dumps — never needed inside an image).
+release/*.sql.gz
+release/*.sql
+# Screenshot assets.
+screenshots

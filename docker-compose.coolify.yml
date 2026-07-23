@@ -1,0 +1,210 @@
+# BANCO — Coolify Docker Compose deployment.
+#
+# Deploy the complete BANCO monorepo on Coolify running on Hostinger VPS.
+#
+# Services:
+#   postgres    — PostgreSQL 16, persistent volume
+#   api         — BANCO API server (Node 24 + esbuild, port 8080)
+#   banco-web   — Consumer-facing Next.js app (port 3000)
+#   website     — Marketing website Next.js app (port 3001)
+#   web         — Nginx serving Vite SPAs: admin(/admin/), market(/market/), landing(/)
+#                 Also reverse-proxies /api/* to api:8080 (port 8888)
+#
+# In Coolify:
+#   1. Create a new "Docker Compose" application.
+#   2. Point it at this repository.
+#   3. Set "Docker Compose File Path" to: docker-compose.coolify.yml
+#   4. Configure environment variables in Coolify's Env tab (see docs/DEPLOY_COOLIFY.md).
+#   5. Deploy.
+#
+# Coolify's Traefik proxy will route each exposed port to its configured domain.
+#
+# NEVER commit real secrets — always use Coolify's env management or a .env file
+# that lives only on the VPS (not in git).
+#
+# Build context for all services = repository root.
+
+name: banco
+
+networks:
+  banco-net:
+    driver: bridge
+
+volumes:
+  banco_pgdata:
+    driver: local
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — persistent data store
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    networks:
+      - banco-net
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB:       ${POSTGRES_DB:-banco}
+    volumes:
+      - banco_pgdata:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-banco}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # API server — Node 24, esbuild bundle, Express 5
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: deploy/coolify/Dockerfile.api
+    image: banco-api:latest
+    restart: unless-stopped
+    networks:
+      - banco-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT:                        "8080"
+      NODE_ENV:                    production
+      DATABASE_URL:                ${DATABASE_URL:?DATABASE_URL is required}
+      CLERK_SECRET_KEY:            ${CLERK_SECRET_KEY:?CLERK_SECRET_KEY is required}
+      CLERK_PUBLISHABLE_KEY:       ${CLERK_PUBLISHABLE_KEY:-}
+      CORS_ALLOWED_ORIGINS:        ${CORS_ALLOWED_ORIGINS:-}
+      PUBLIC_API_BASE_URL:         ${PUBLIC_API_BASE_URL:-}
+      PUBLIC_APP_URL:              ${PUBLIC_APP_URL:-}
+      ADMIN_EMAILS:                ${ADMIN_EMAILS:-}
+      SESSION_SECRET:              ${SESSION_SECRET:?SESSION_SECRET is required}
+      PAYMENT_CONFIG_ENCRYPTION_KEY: ${PAYMENT_CONFIG_ENCRYPTION_KEY:?PAYMENT_CONFIG_ENCRYPTION_KEY is required}
+      # Object storage (S3-compatible or GCS).
+      OBJECT_STORAGE_PROVIDER:     ${OBJECT_STORAGE_PROVIDER:-}
+      AWS_REGION:                  ${AWS_REGION:-}
+      S3_BUCKET:                   ${S3_BUCKET:-}
+      PUBLIC_OBJECT_SEARCH_PATHS:  ${PUBLIC_OBJECT_SEARCH_PATHS:-}
+      PRIVATE_OBJECT_DIR:          ${PRIVATE_OBJECT_DIR:-}
+      # Integrations (optional per feature).
+      OPENAI_API_KEY:              ${OPENAI_API_KEY:-}
+      OPENAI_MODEL:                ${OPENAI_MODEL:-}
+      OPENAI_TIMEOUT_MS:           ${OPENAI_TIMEOUT_MS:-}
+      OPENAI_MAX_RETRIES:          ${OPENAI_MAX_RETRIES:-}
+      OPENAI_MAX_COMPLETION_TOKENS: ${OPENAI_MAX_COMPLETION_TOKENS:-}
+      RESEND_API_KEY:              ${RESEND_API_KEY:-}
+      EMAIL_FROM:                  ${EMAIL_FROM:-}
+      PAYMOB_MODE:                 ${PAYMOB_MODE:-test}
+      PAYMOB_API_BASE:             ${PAYMOB_API_BASE:-}
+      PAYMOB_PUBLIC_KEY:           ${PAYMOB_PUBLIC_KEY:-}
+      PAYMOB_SECRET_KEY:           ${PAYMOB_SECRET_KEY:-}
+      PAYMOB_HMAC_SECRET:          ${PAYMOB_HMAC_SECRET:-}
+      PAYMOB_INTEGRATION_IDS:      ${PAYMOB_INTEGRATION_IDS:-}
+      ERROR_ALERT_WEBHOOK:         ${ERROR_ALERT_WEBHOOK:-}
+      LOG_LEVEL:                   ${LOG_LEVEL:-info}
+      LOG_DIR:                     ${LOG_DIR:-}
+      CRON_TIMEZONE:               ${CRON_TIMEZONE:-Africa/Cairo}
+    expose:
+      - "8080"
+    ports:
+      - "${API_HOST_PORT:-8080}:8080"
+
+  # ---------------------------------------------------------------------------
+  # Consumer web — Next.js standalone (artifacts/banco-web)
+  # ---------------------------------------------------------------------------
+  banco-web:
+    build:
+      context: .
+      dockerfile: deploy/coolify/Dockerfile.banco-web
+      args:
+        NEXT_PUBLIC_API_URL:              ${NEXT_PUBLIC_API_URL:-http://api:8080}
+        NEXT_PUBLIC_SITE_URL:             ${NEXT_PUBLIC_SITE_URL:-}
+        NEXT_PUBLIC_MARKET_URL:           ${NEXT_PUBLIC_MARKET_URL:-}
+        NEXT_PUBLIC_ADMIN_URL:            ${NEXT_PUBLIC_ADMIN_URL:-}
+        NEXT_PUBLIC_APP_ANDROID_URL:      ${NEXT_PUBLIC_APP_ANDROID_URL:-}
+        NEXT_PUBLIC_APP_IOS_URL:          ${NEXT_PUBLIC_APP_IOS_URL:-}
+        NEXT_PUBLIC_WEB_SEARCH_LIVE:      ${NEXT_PUBLIC_WEB_SEARCH_LIVE:-false}
+        NEXT_PUBLIC_WEB_SEARCH_MAP:       ${NEXT_PUBLIC_WEB_SEARCH_MAP:-false}
+        NEXT_PUBLIC_WEB_MARKET_COPY:      ${NEXT_PUBLIC_WEB_MARKET_COPY:-false}
+        NEXT_PUBLIC_SEARCH_ENABLED:       ${NEXT_PUBLIC_SEARCH_ENABLED:-true}
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
+        NEXT_PUBLIC_CLERK_PROXY_URL:      ${NEXT_PUBLIC_CLERK_PROXY_URL:-}
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:  ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}
+    image: banco-consumer-web:latest
+    restart: unless-stopped
+    networks:
+      - banco-net
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      PORT:             "3000"
+      HOSTNAME:         "0.0.0.0"
+      NODE_ENV:         production
+      # Phase 6 kill-switch: false → serve /maintenance for all pages.
+      WEB_PLUG_ENABLED: ${WEB_PLUG_ENABLED:-true}
+    ports:
+      - "${BANCO_WEB_HOST_PORT:-3000}:3000"
+
+  # ---------------------------------------------------------------------------
+  # Marketing website — Next.js standalone (artifacts/banco-website)
+  # ---------------------------------------------------------------------------
+  website:
+    build:
+      context: .
+      dockerfile: deploy/coolify/Dockerfile.banco-website
+      args:
+        NEXT_PUBLIC_API_URL:              ${NEXT_PUBLIC_API_URL:-http://api:8080}
+        NEXT_PUBLIC_SITE_URL:             ${WEBSITE_SITE_URL:-}
+        NEXT_PUBLIC_SITE_URL_EN:          ${WEBSITE_SITE_URL_EN:-}
+        NEXT_PUBLIC_MARKET_URL:           ${NEXT_PUBLIC_MARKET_URL:-}
+        NEXT_PUBLIC_ADMIN_URL:            ${NEXT_PUBLIC_ADMIN_URL:-}
+        NEXT_PUBLIC_APP_ANDROID_URL:      ${NEXT_PUBLIC_APP_ANDROID_URL:-}
+        NEXT_PUBLIC_APP_IOS_URL:          ${NEXT_PUBLIC_APP_IOS_URL:-}
+        NEXT_PUBLIC_SEARCH_ENABLED:       ${NEXT_PUBLIC_SEARCH_ENABLED:-true}
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
+        NEXT_PUBLIC_CLERK_PROXY_URL:      ${NEXT_PUBLIC_CLERK_PROXY_URL:-}
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:  ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}
+    image: banco-website:latest
+    restart: unless-stopped
+    networks:
+      - banco-net
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      PORT:      "3000"
+      HOSTNAME:  "0.0.0.0"
+      NODE_ENV:  production
+    ports:
+      - "${WEBSITE_HOST_PORT:-3001}:3000"
+
+  # ---------------------------------------------------------------------------
+  # Web surfaces — Nginx serving Vite SPAs + optional API proxy
+  # landing(/)  dealer-os(/market/)  admin-os(/admin/)
+  # ---------------------------------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: deploy/coolify/Dockerfile.web
+      args:
+        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:-}
+        VITE_API_BASE_URL:          ${VITE_API_BASE_URL:-}
+        VITE_MARKET_URL:            ${VITE_MARKET_URL:-}
+        VITE_ADMIN_URL:             ${VITE_ADMIN_URL:-}
+        VITE_APP_ANDROID_URL:       ${VITE_APP_ANDROID_URL:-}
+        VITE_APP_IOS_URL:           ${VITE_APP_IOS_URL:-}
+    image: banco-web-surfaces:latest
+    restart: unless-stopped
+    networks:
+      - banco-net
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_HOST_PORT:-8888}:80"
