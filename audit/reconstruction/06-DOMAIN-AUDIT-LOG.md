@@ -26,8 +26,22 @@ Compact `MarketCountryButton` everywhere; `marketMatrix` dead style; Stay header
 | Edit-media wired (was dead in old line) | `edit/[id].tsx:26,221` `ListingMediaEditor` imported+used | ✅ |
 Confidence: High (verified).
 
+### Cross-surface HARMONY (mobile ↔ API ↔ dealer-os ↔ admin-os ↔ data) — INTACT
+| Check | Evidence | Status |
+|---|---|---|
+| One contract SSOT | `lib/api-spec/openapi.yaml` → `orval.config.ts` → `api-client-react` + `api-zod` (+ `postprocess.mjs`) | ✅ |
+| All surfaces use GENERATED client | imports of `@workspace/api-client-react`: mobile 73 · **dealer-os 16** · **admin-os 19** · banco-web 47 · banco-website 47 · landing 0 (static) | ✅ |
+| No contract drift | **zero** hand-written `fetch("/api/v1…")` bypassing the client | ✅ |
+| One visibility rule on data | `publicVisibilityConditions()` applied on search (`SearchService.ts:409`), mapClusters (:541), facets (:600) | ✅ |
+| One search pipeline (list/map/facets) | shared builder + `market_country` rule (:201) + pg_trgm | ✅ |
+| Notifications single chokepoint | `createNotification` → prefs → DB → `sendPushToUser` (`NotificationService.ts:40,75`) | ✅ |
+Confidence: High (verified). This is the "تناغم" across surfaces + data — architecturally sound and intact.
+
+### Maps — INTACT
+`SearchService.mapClusters` (:516) shares the same filters + `publicVisibilityConditions` as list search → list/map parity. Leaflet/OSM WebView client. Confidence: High.
+
 ## Pending domain audits (next)
-Maps/pins/clusters · Search/pg_trgm/facets · Notifications (in-app+push) · Auth (Google/Apple live + Facebook new build) · Payments/wallet · Admin.
+Search ranking/facets deep · Notifications routing per-type + push (device) · Auth (Google/Apple live dict + Facebook new build) · Payments/wallet (Paymob keys) · Admin control deep (staffRole matrix).
 
 ## Genuine gaps (not code-present) tracked
 1. Facebook login — new build (absent everywhere).
