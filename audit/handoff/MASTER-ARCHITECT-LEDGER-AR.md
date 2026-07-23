@@ -196,11 +196,16 @@ prefs → insert DB → `sendPushToUser` (fire-and-forget) · فشل الإشع�
 
 ---
 
-## 9) ماذا سأفعل تاليًا (بلا قفز · بلا rebuild)
+## 9) حصاد قسم×قسم (2026-07-23)
 
-1. فهرسة/قراءة handoff المتبقية على دفعات  
-2. CA tip Evidence لغياب bancoo (demote/media/…) — بطاقة واحدة  
-3. موجة واحدة فقط بعد أمر مالك (C1 staging أو C2 surgical أو polish Home/notif)  
+دفتر كامل: `SECTION-BY-SECTION-FINISH-HARVEST-AR.md`  
+**حي:** حارس 46/46 · Stay أسود · لا fake 67 · Bundle `com.bancoboom.app` · `DEMOTE_BLOCKED` غائب من bancoo · أيقونات إشعار ناقصة لـ investment/global_supply/payment/subscription.
+
+## 10) ماذا سأفعل تاليًا (بلا قفز · بلا rebuild)
+
+1. فهرسة handoff المتبقية على دفعات (PASTE/REPLIT/TASK)  
+2. بعد أمر مالك — موجة واحدة فقط من طابور §14 في حصاد الأقسام  
+3. C2 Evidence `DEMOTE_BLOCKED` من CA إن أُمر  
 4. لا merge cutover DNS بلا بوابات + قبول مالك  
 
 ---
