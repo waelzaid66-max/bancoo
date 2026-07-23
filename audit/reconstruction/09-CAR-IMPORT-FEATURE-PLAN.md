@@ -1,6 +1,20 @@
 # Car Import — full sequential lifecycle (feature build, layered) — `bancotoday`
 
-**Owner priority #1.** Build a REAL sequential import-order flow as an **additive layer inside the Car section only** — do not break the existing Discover import filter or the static guide. Contract-first (OpenAPI→orval), Android-icon lock respected, gates green per layer.
+**Owner priority #1.** Build a REAL sequential import-order flow as an **additive, standalone Import surface** — **NOT inside the `/section/car` mini-app** (owner correction 2026-07-23). Contract-first (OpenAPI→orval), Android-icon lock respected, gates green per layer, no other feature touched.
+
+## Surface map (precise — where work goes)
+| Surface | Route/file | Role | Touch? |
+|---|---|---|---|
+| Cars browse mini-app | `/section/car` (`components/search/SectionSearchApp`) | browse cars (own Discover icon) | **NO** |
+| Browse imported cars | Discover CTA `discover-car-import` → `/section/car?engine=import` | filter existing imported listings | **NO** (stays) |
+| **Import service (order lifecycle)** | `app/import-tracking.tsx` (Stack, from Profile `importTrackCta`) + **new** `app/import/request.tsx` | request + live tracking | **YES (here)** |
+| Navigation | `app/_layout.tsx` (register new Stack route) | dependency | YES (additive route reg) |
+| Backend | `import_orders` (done) + OpenAPI + service + routes | data/API | YES |
+
+**Deployment ripple (per mile):** new Stack routes → mobile/EAS bundle + `_layout` nav; API table → API deploy + `push-force` migrate; OpenAPI → codegen touches all client consumers (additive only).
+
+## Compatibility re-audit of pushed work (all ✅)
+`fd36493` schema = single-file additive table, no FK/edits to existing tables (isolated; earlier "inside car section" wording was imprecise — the table is standalone). `405abf7` SSO/icons isolated. `88cec6c` deploy additive. `397b49e` scripts. Sequential on main, no conflicts.
 
 ## Stages (from the existing guide, now backed by data)
 `order → review → confirm → shipping → customs → delivered` (+ terminal `cancelled`).
