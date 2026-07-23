@@ -51,8 +51,19 @@ Confidence: High (verified). This is the "تناغم" across surfaces + data —
 | Social links (savable) | instagram/linkedin/whatsapp/website (`socialLinks.ts`) — not facebook | ✅ by design |
 Genuine gaps: **Facebook = new build** (oauth_facebook strategy + button + Clerk/Meta app); **Clerk Dashboard (prod)** enable Google/Apple + **Allowed Origins** (prevents `pk_live` white-screen). Both OPS/owner. Confidence: High.
 
+### Scale / performance (for millions) — mostly ready; 1 real gap
+| Check | Evidence | Verdict |
+|---|---|---|
+| Keyset cursor pagination | `SearchService.ts:349-399` (created_at\|id, boundary-safe; offset only for price/popular) | ✅ scales |
+| DB indexes | **149** indexes incl. listings created_at/price/status/category/user/location/trust (`schema:590-596`) | ✅ strong |
+| Batch enrich (no N+1) | `enrichListings` uses `inArray(...)` — 2 batched queries per page (`:871-872`) | ✅ |
+| Mobile virtualization | FlashList on feed + results (`(tabs)/index.tsx`, `SearchResultsSurface.tsx`) | ✅ (verify all long lists) |
+| Notifications routing | single `routeForNotification` for in-app + push (`notificationRouting.ts:15,93`) | ✅ chokepoint |
+| **Rate limiting** | `express-rate-limit` **in-memory**, no shared store (`rateLimiter.ts`) | ⚠️ **GAP: multi-instance needs Redis store** |
+Verdict: foundation scales (cursor + indexes + batch); **genuine scale gap = shared-store rate limiting (Redis) + load test** for true millions/multi-instance. Not broken code — a production hardening (W8). Confidence: High.
+
 ## Pending domain audits (next)
-Search ranking/facets deep · Notifications routing per-type + push (device) · Payments/wallet (Paymob keys) · Admin control deep (staffRole permission matrix) · Messaging.
+Payments/wallet (Paymob keys) · Admin control deep (staffRole permission matrix) · Messaging thread · Search ranking/facets deep · verify remaining long lists virtualized.
 
 ## Genuine gaps (not code-present) tracked
 1. Facebook login — new build (absent everywhere).
