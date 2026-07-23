@@ -40,8 +40,19 @@ Confidence: High (verified). This is the "تناغم" across surfaces + data —
 ### Maps — INTACT
 `SearchService.mapClusters` (:516) shares the same filters + `publicVisibilityConditions` as list search → list/map parity. Leaflet/OSM WebView client. Confidence: High.
 
+### Auth (Clerk) — CODE SOUND; gaps are env + Facebook(new)
+| Check | Evidence | Status |
+|---|---|---|
+| SSO wired | `profile.tsx:528-529` `startSSOFlow` strategy = `oauth_google` / `oauth_apple` only | ✅ Google+Apple |
+| Facebook login | **absent everywhere** (no `oauth_facebook`; not even a social-link) | ❌ new build |
+| Clerk providers | mobile `ClerkProvider` @clerk/expo (`_layout.tsx:352`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`); API `clerkMiddleware` + `publishableKeyFromHost` multi-domain (`app.ts:126`) | ✅ |
+| Auth→data harmony | `authGuard` `getAuth`→`req.userId=clerkId`→`getOrCreateUser` (lazy sync) | ✅ |
+| Email/OTP | `email_code` via Clerk (`settings.tsx:565`) | ✅ |
+| Social links (savable) | instagram/linkedin/whatsapp/website (`socialLinks.ts`) — not facebook | ✅ by design |
+Genuine gaps: **Facebook = new build** (oauth_facebook strategy + button + Clerk/Meta app); **Clerk Dashboard (prod)** enable Google/Apple + **Allowed Origins** (prevents `pk_live` white-screen). Both OPS/owner. Confidence: High.
+
 ## Pending domain audits (next)
-Search ranking/facets deep · Notifications routing per-type + push (device) · Auth (Google/Apple live dict + Facebook new build) · Payments/wallet (Paymob keys) · Admin control deep (staffRole matrix).
+Search ranking/facets deep · Notifications routing per-type + push (device) · Payments/wallet (Paymob keys) · Admin control deep (staffRole permission matrix) · Messaging.
 
 ## Genuine gaps (not code-present) tracked
 1. Facebook login — new build (absent everywhere).
