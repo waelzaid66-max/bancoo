@@ -208,6 +208,11 @@ prefs → insert DB → `sendPushToUser` (fire-and-forget) · فشل الإشع�
 
 **مسؤولية:** فينش+تجميع+مسار برودكشن صادق لتسليم شركة عالمية — **ليس** ادّعاء أن التسليم اكتمل.
 
+## 9ج) تاريخ عميق + طبقات (2026-07-23 جولة 3)
+
+دفتر: `DEEP-SYSTEM-CHRONICLE-LAYERS-AR.md`  
+حقائق GitHub: CA tip `210a325` · 61 فرع · PRs #25–#41 مدمجة يوم الأقسام/FI · bancoo orphan `321af02` ومصدره المدّعى `93f2c7e` **غير موجود** · CA يملك `DEMOTE_BLOCKED` + readyz gitSha · bancoo يفتقدهما على اللقطة · وكيل Cursor سحابي واحد ظاهر فقط.
+
 ## 10) ماذا سأفعل تاليًا (بلا قفز · بلا rebuild)
 
 1. فهرسة handoff المتبقية على دفعات (PASTE/REPLIT/TASK)  
