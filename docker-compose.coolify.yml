@@ -70,6 +70,10 @@ services:
     build:
       context: .
       dockerfile: deploy/coolify/Dockerfile.api
+      args:
+        # Deploy pin baked into the image; also set at runtime below as fallback.
+        GIT_SHA: ${GIT_SHA:-}
+        BUILD_ID: ${BUILD_ID:-}
     image: banco-api:latest
     restart: always
     depends_on:
@@ -82,6 +86,9 @@ services:
     environment:
       PORT: "8080"
       NODE_ENV: production
+      # Deploy pin — appears on GET /api/readyz (and /api, /api/livez).
+      GIT_SHA: ${GIT_SHA:-}
+      BUILD_ID: ${BUILD_ID:-}
       # DATABASE_URL uses the `postgres` service name as hostname (Docker DNS).
       DATABASE_URL: postgresql://${POSTGRES_USER:-banco}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-banco}
       # Auth
@@ -91,6 +98,7 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
       PAYMENT_CONFIG_ENCRYPTION_KEY: ${PAYMENT_CONFIG_ENCRYPTION_KEY:?PAYMENT_CONFIG_ENCRYPTION_KEY is required}
       # CORS: list of allowed origins (comma-separated public URLs of all frontends).
+      # Production live origins today include https://banco.today and https://banco.deals.
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
@@ -107,11 +115,16 @@ services:
       PAYMOB_HMAC_SECRET: ${PAYMOB_HMAC_SECRET:-}
       PAYMOB_INTEGRATION_IDS: ${PAYMOB_INTEGRATION_IDS:-}
       # Object storage (optional — required for media uploads)
+      # Supported providers in code: `s3` | `replit` only. `gcs` is REJECTED.
       OBJECT_STORAGE_PROVIDER: ${OBJECT_STORAGE_PROVIDER:-}
       AWS_REGION: ${AWS_REGION:-}
       S3_BUCKET: ${S3_BUCKET:-}
       PUBLIC_OBJECT_SEARCH_PATHS: ${PUBLIC_OBJECT_SEARCH_PATHS:-}
       PRIVATE_OBJECT_DIR: ${PRIVATE_OBJECT_DIR:-}
+      # Hostinger / Coolify has no instance IAM role — pass static keys when using s3.
+      # On AWS ECS/EC2 these may be omitted (default provider chain / task role).
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       # Observability
       ERROR_ALERT_WEBHOOK: ${ERROR_ALERT_WEBHOOK:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}

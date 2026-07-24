@@ -53,6 +53,9 @@ services:
     build:
       context: .
       dockerfile: deploy/coolify/Dockerfile.api
+      args:
+        GIT_SHA: ${GIT_SHA:-}
+        BUILD_ID: ${BUILD_ID:-}
     image: banco-api:latest
     restart: always
     networks:
@@ -86,6 +89,11 @@ services:
       S3_BUCKET: ${S3_BUCKET:-}
       PUBLIC_OBJECT_SEARCH_PATHS: ${PUBLIC_OBJECT_SEARCH_PATHS:-}
       PRIVATE_OBJECT_DIR: ${PRIVATE_OBJECT_DIR:-}
+      # Hostinger/Coolify: pass static keys (no IAM). Omit on AWS with role.
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      GIT_SHA: ${GIT_SHA:-}
+      BUILD_ID: ${BUILD_ID:-}
       ERROR_ALERT_WEBHOOK: ${ERROR_ALERT_WEBHOOK:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       CRON_TIMEZONE: ${CRON_TIMEZONE:-Africa/Cairo}
