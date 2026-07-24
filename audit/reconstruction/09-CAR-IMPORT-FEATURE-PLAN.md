@@ -29,6 +29,23 @@ Make the **"Car import" card → an Import hub** `app/import/index.tsx` with (a)
 ## Stages (from the existing guide, now backed by data)
 `order → review → confirm → shipping → customs → delivered` (+ terminal `cancelled`).
 
+## Full scope (owner 2026-07-24): production layers · keep existing (support `import-tracking`, don't delete) · wire notifications + emails · exact placements
+| Piece | Exact location | Rule |
+|---|---|---|
+| DB order table | `lib/db` `import_orders` + `import_order_stage` (done) | additive |
+| DB notif type | `lib/db` `notificationTypeEnum` += `"import"` | additive |
+| API contract | `lib/api-spec/openapi.yaml`: `POST /v1/import-orders`, `GET /v1/import-orders/mine`, `GET /v1/import-orders/{id}` + schemas `ImportOrder`,`ImportOrderListItem`,`CreateImportOrderBody`,`ImportOrderStage` (mirror bookings) | additive; codegen after |
+| Service | `ImportOrderService.ts`: create/listMine/get/advanceStage; **on create + each stage → `createNotification({type:"import",...})` + `EmailService.sendImportUpdateEmail`** | mirror RfqService + AlertService wiring |
+| Email | `EmailService.ts` += `sendImportUpdateEmail(args)` (bilingual AR/EN, like `sendNewMatchEmail`) | additive |
+| Controller+routes | `importOrderController.ts` + mount in `routes/v1` (`requireAuth`; stage-advance = staff `requirePermission`) | mirror rfq |
+| Notif routing (mobile) | `lib/notificationRouting.ts` += `case "import"` → `/import-tracking` (or order detail); `notifications.tsx iconForType` += `import`→`truck` (mapped) | keep guards green |
+| Mobile: Import hub | `app/import/index.tsx` (new): 3 entries — Browse imported (existing route, unchanged) · Request import (new) · My orders/tracking | **keep** existing `import-tracking` (upgrade to real orders, guide = empty state) |
+| Mobile: Request | `app/import/request.tsx` (new) → `useCreateImportOrder` | Stack route in `_layout.tsx` |
+| Mobile: Tracking | `app/import-tracking.tsx` upgraded → `useListMyImportOrders` live stages; **do NOT delete the guide** (owner: support existing menu work) — becomes empty-state | additive |
+| Entry rewire | Search "Car import" card → `/import` hub (browse still one tap inside); Profile `importTrackCta` stays | no break to `/section/car` |
+| i18n | EN+AR keys under `importTrack` + new `import.*` | parity |
+| Gates | typecheck all · icons/i18n/section guards · secret-scan · migrate `push-force` | per layer |
+
 ## Layered plan (each layer: verify typecheck/guards → push)
 | Layer | Scope | Status |
 |---|---|---|
