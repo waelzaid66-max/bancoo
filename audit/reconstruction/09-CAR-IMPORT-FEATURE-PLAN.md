@@ -13,6 +13,16 @@
 
 **Deployment ripple (per mile):** new Stack routes → mobile/EAS bundle + `_layout` nav; API table → API deploy + `push-force` migrate; OpenAPI → codegen touches all client consumers (additive only).
 
+## VISUALLY VERIFIED (web-export, seen not just read) — 2026-07-24
+Ran the app (web export) and SAW the screens:
+- Search/Discover **does** have a standalone **"Car import" card** (maroon, "Browse imported vehicles"), separate from the 4 section cards + Booking + "Explore on map" + Global-supply cards. ✅ (matches owner + code)
+- Today the card = **browse imported only** → `/section/car?engine=import`. It is NOT an import-service entry.
+- import-tracking (service guide) sits behind Profile/auth → hidden; Profile needs real Clerk (test key can't init).
+Screenshots: `banco_discover_import_card.webp`, `banco_car_import_card_closeup.webp`.
+
+### Reality-based placement (revised, additive — confirm before code)
+Make the **"Car import" card → an Import hub** `app/import/index.tsx` with (a) **Browse imported cars** (existing route, unchanged), (b) **Request a car import** → new `app/import/request.tsx` (creates `import_order`), (c) **My import orders** → upgraded `app/import-tracking.tsx` (live stages). Card stays on Search; browse path preserved (no break). Entry also from Profile (existing `importTrackCta`). NOT inside `/section/car`.
+
 ## Compatibility re-audit of pushed work (all ✅)
 `fd36493` schema = single-file additive table, no FK/edits to existing tables (isolated; earlier "inside car section" wording was imprecise — the table is standalone). `405abf7` SSO/icons isolated. `88cec6c` deploy additive. `397b49e` scripts. Sequential on main, no conflicts.
 
