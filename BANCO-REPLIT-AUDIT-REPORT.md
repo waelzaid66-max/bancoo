@@ -165,4 +165,154 @@ Commit من المالك (Banco Group) بتاريخ 20 يوليو:
 
 ---
 
+---
+
+## 8. خارطة الاستعادة الكاملة (Recovery Plan)
+
+### الوضع الحقيقي:
+
+هناك **مسارين تطوير متوازيين** بعد 21 يوليو:
+
+| المسار | المصدر | ما يحتويه |
+|--------|--------|-----------|
+| **bancoo** (هذا الريبو) | Fork من CAOOM@93f2c7e (21 يوليو 14:34) | 66 commit تطوير جديد: Facebook OAuth, Car Import كامل, CDN, Sections refactor, FilterPill, profile fix, publish fixes, brand spark, saved searches |
+| **CAOOM tip** (210a325) | استمر من نفس النقطة | 67 ملف مختلف: edit media, video posters, Expo identity, security gates, status sync, mark-sold, archive, post-signup nav, notifications, accounts SoT |
+
+### الملفات الـ 67 التي تختلف بين CAOOM و bancoo:
+
+**API Server (16 ملف):**
+- `listingController.ts` — edit media + upload verify
+- `uploadController.ts` — upload 503 fix
+- `UserService.ts` — account deletion + blob cleanup
+- `ListingService.ts` — mark-sold + status sync
+- `SearchService.ts` — propertyType contract
+- `NotificationService.ts` — bilingual content restore
+- `FinancingService.test.ts` — FI scope tests
+- `validators/schemas.ts` — updated validation
+- `routes/health.ts` — healthcheck
+- `routes/v1/index.ts` — route wiring
+- `logger.ts` — logging improvements
+- `permissions.test.ts` — permission mirror
+- `ensureSchema.ts` — DB schema enforcement
+- `schema/index.ts` — DB schema updates
+- `health.test.ts` — health test
+
+**Mobile (38 ملف):**
+- `ListingMediaEditor.tsx` — dealer edit media
+- `SearchDiscover.tsx` — discover portals
+- `SectionSearchApp.tsx` — mini-app layers
+- `BookingStaysApp.tsx` — Stay discipline
+- `FilterSheet.tsx` — filter fixes
+- `SmartAssetCard.tsx` — RTL + sort badge
+- `SearchResultsMap.tsx` + `.web.tsx` — map locate-me
+- `mapHtml.ts` — map center toolkit
+- `icons.tsx` — registered icons
+- `PromoteButton.tsx` — promote gate
+- `MediaGallery.tsx` — video posters
+- `BookingCard.tsx` — booking card
+- `nearMe.ts` — EU market flags
+- `searchTaxonomy.ts` — taxonomy
+- `listingMedia.ts` — media handling
+- `notificationRouting.ts` — notification routing
+- `listingDraft.ts` — draft handling
+- `notifications.tsx` — notification screen
+- `banks.tsx` — bank screen
+- `onboarding.tsx` — onboarding
+- `verification.tsx` — verification
+- `messages/[id].tsx` — messages
+- `listing/[id].tsx` — listing detail
+- `section/*.tsx` — all section screens (car, real-estate, materials, factories)
+- `listings/mine.tsx` + `edit/[id].tsx` + `create.tsx` — listing CRUD
+- `(tabs)/search.tsx` + `index.tsx` + `profile.tsx` — main tabs
+- `import-tracking.tsx` — import tracking
+- `app.config.ts` — app config
+- `SessionContext.tsx` — session context
+- `constants/*.ts` — i18n, taxonomy, country codes
+
+**Web & Admin (6 ملف):**
+- `banco-website/next.config.ts`
+- `banco-web/next.config.ts`
+- `admin-os/lib/i18n.ts` + `pages/users.tsx`
+- `dealer-os/components/listing-form-sheet.tsx` + `i18n/strings.ts` + `pages/listings.tsx`
+- `landing/src/App.tsx`
+
+**Generated/Lib (4 ملف):**
+- `lib/api-client-react/src/generated/api.schemas.ts`
+- `lib/api-client-react/src/generated/api.ts`
+- `lib/api-zod/src/generated/api.ts`
+- `lib/db/src/schema/index.ts` + `ensureSchema.ts`
+
+---
+
+### 9. خطة العمل (ماذا تفعل الآن)
+
+#### الخيار الأفضل: دمج CAOOM fixes في bancoo
+
+**`bancoo` هو الأساس** لأنه يحتوي على:
+- Car Import كامل (7 layers) — غير موجود في CAOOM
+- Facebook OAuth
+- CDN readiness
+- Sections refactor (chrome, pills, strips)
+- FilterPill + saved searches
+- Profile fixes + publish fixes
+- Brand spark animation
+- Android versionCode auto-increment
+
+**CAOOM tip يحتوي على إصلاحات مهمة** بعد الـ fork:
+- Edit media for dealers
+- Video posters
+- Mark-sold + archive
+- Post-signup navigation fix
+- Account source-of-truth
+- Status cache sync
+- Security gates
+- Expo identity
+- Map locate-me + EU flags
+- Bilingual notifications restore
+
+#### الخطوات:
+
+```bash
+# 1. ادخل على bancoo (هذا المستودع)
+cd bancoo
+
+# 2. أضف CAOOM كـ remote
+git remote add caoom https://github.com/waelzaid66-max/-BANCO-CA-OOM-.git
+git fetch caoom
+
+# 3. أنشئ branch للدمج
+git checkout -b recovery/merge-caoom-fixes
+
+# 4. Cherry-pick الإصلاحات المهمة من CAOOM (بعد July 21 20:00)
+# هذه الـ commits الأهم (code fixes, not docs):
+git cherry-pick 340392f  # restore wiped touch menus + upload 503
+git cherry-pick ea74795  # restore Skip/anti-trap, map locate-me, EU flags
+git cherry-pick 1dfe613  # restore market-country map center
+git cherry-pick 5a67b27  # close profile/FI gaps
+git cherry-pick fcceaba  # upload verify to 503
+git cherry-pick 9bcea44  # push message listingId
+git cherry-pick 0a9c458  # FI awaiting-link queue
+git cherry-pick df37939  # Android/iOS platform hygiene
+git cherry-pick 5c6e813  # profile hooks-safe, map centers
+git cherry-pick c72d3b1  # ClerkLoadGate
+git cherry-pick 9965d12  # wire edit media, buyer phone, landing Clerk
+git cherry-pick edbe6cf  # archive, post-signup no-nav, edit invalidate
+git cherry-pick 2c667c8  # status cache sync, mark-sold, account SoT
+git cherry-pick e4c8118  # dealer edit media, video posters, identity, security
+
+# 5. حل أي conflicts يدوياً
+# 6. تأكد إن typecheck يمر
+pnpm run typecheck
+
+# 7. ادفع وأنشئ PR
+git push -u origin recovery/merge-caoom-fixes
+```
+
+#### ملاحظات مهمة:
+- **الـ generated files** (api.schemas.ts, api.ts, api-zod) — لا تعمل cherry-pick عليها. بعد دمج الكود، اعمل `pnpm run generate` لتحديثها
+- **schema/index.ts** — تأكد من الدمج يدوياً لأنه قد يكون فيه تعارض
+- **لا تأخذ docs/handoff commits** — هذه وثائق فقط وليست كود
+
+---
+
 *تم إعداد هذا التقرير آلياً بتحليل 727+ commit عبر 6 مستودعات Git.*
