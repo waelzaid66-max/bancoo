@@ -2,12 +2,9 @@
   "version": 2,
   "framework": null,
   "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm --filter @workspace/api-server run build",
   "functions": {
     "api/handler.ts": {
-      "maxDuration": 30,
-      "memory": 1024,
-      "includeFiles": "dist/**"
+      "maxDuration": 10
     }
   },
   "rewrites": [
