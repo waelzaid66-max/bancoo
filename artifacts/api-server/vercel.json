@@ -1,6 +1,7 @@
 {
   "version": 2,
   "framework": null,
+  "ignoreCommand": "echo 'bancoo-api-server: production API is Coolify-hosted (docker-compose.coolify.yml); skipping Vercel preview deploy' && exit 1",
   "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
   "functions": {
     "api/handler.ts": {
