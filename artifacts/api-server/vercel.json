@@ -1,16 +1,7 @@
 {
-  "version": 2,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
-  "functions": {
-    "api/handler.ts": {
-      "maxDuration": 10
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/handler"
-    }
-  ]
+  "installCommand": "echo \"bancoo-api-server: skip dependency install (Coolify hosts API)\"",
+  "buildCommand": "echo \"bancoo-api-server: static stub already in public/\"",
+  "outputDirectory": "public"
 }
