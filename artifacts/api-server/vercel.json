@@ -1,16 +1,10 @@
 {
-  "version": 2,
-  "framework": null,
-  "installCommand": "pnpm install --frozen-lockfile",
-  "functions": {
-    "api/handler.ts": {
-      "maxDuration": 30
-    }
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": false
   },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/handler"
-    }
-  ]
+  "framework": null,
+  "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
+  "buildCommand": "mkdir -p dist && cp public/index.html dist/index.html",
+  "outputDirectory": "dist"
 }
