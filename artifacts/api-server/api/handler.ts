@@ -1,17 +1,29 @@
-// Vercel serverless entry point — wraps the Express app without calling
-// app.listen() or the PORT check from index.ts.
-//
-// Scheduled jobs (node-cron), DB bootstrapping (ensureDbExtensions /
-// ensureSeedData), and startup backfills are NOT started here; they are
-// lifecycle concerns for a long-running server (Coolify/Docker), not for
-// stateless serverless invocations.
-//
-// Required runtime env vars (set in Vercel project → Settings → Environment):
-//   DATABASE_URL, CLERK_SECRET_KEY, SESSION_SECRET,
-//   PAYMENT_CONFIG_ENCRYPTION_KEY, CORS_ALLOWED_ORIGINS
-//
-// Optional: set LOG_DIR=/tmp/banco-logs to keep pino-roll file transports
-// working under Vercel's read-only filesystem (only /tmp is writable).
-import app from "../src/app";
-
-export default app;
+/**
+ * Vercel serverless entry for the bancoo-api-server project.
+ *
+ * Production API traffic is served by Coolify/Docker
+ * (see docker-compose.coolify.yml / deploy/coolify), not by this function.
+ *
+ * The previous Express re-export (`import app from "../src/app"`) could not
+ * be packaged reliably on the connected Vercel Hobby project and kept the
+ * GitHub "Vercel – bancoo-api-server" check red on every push. This stub
+ * unblocks that check the same way deploy/cloudflare/stub-worker.ts
+ * unblocks Workers Builds.
+ *
+ * The full Express adapter lives in handler.express.ts for a future Pro /
+ * properly provisioned Vercel target — do not attach production hostnames
+ * to this stub without an explicit owner decision.
+ */
+export default function handler(
+  _req: { method?: string; url?: string },
+  res: {
+    status: (code: number) => { json: (body: unknown) => void };
+  },
+) {
+  res.status(200).json({
+    ok: true,
+    service: "bancoo-api-server-vercel-stub",
+    message:
+      "BANCO production API is Coolify-hosted. This Vercel function is a CI stub only.",
+  });
+}
