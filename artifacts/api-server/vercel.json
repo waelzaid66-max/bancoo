@@ -1,7 +1,6 @@
 {
   "version": 2,
   "framework": null,
-  "ignoreCommand": "node ../../scripts/vercel-always-skip.mjs",
   "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
   "functions": {
     "api/handler.ts": {

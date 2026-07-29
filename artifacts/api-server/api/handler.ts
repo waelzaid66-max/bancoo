@@ -10,9 +10,9 @@
  * unblocks that check the same way deploy/cloudflare/stub-worker.ts
  * unblocks Workers Builds.
  *
- * The full Express adapter lives in handler.express.ts for a future Pro /
- * properly provisioned Vercel target — do not attach production hostnames
- * to this stub without an explicit owner decision.
+ * The full Express adapter lives in vercel-adapters/handler.express.ts
+ * (kept outside api/ so Vercel does not deploy it as a second function).
+ * Do not attach production hostnames to this stub without an owner decision.
  */
 export default function handler(
   _req: { method?: string; url?: string },
