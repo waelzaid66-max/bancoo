@@ -1,7 +1,7 @@
-From ac3d8b5d3bd5dd9241849dd5e6208e724f78fa19 Mon Sep 17 00:00:00 2001
+From 700a40d87764e0cc665883b47da684dc86a68490 Mon Sep 17 00:00:00 2001
 From: Cursor Agent <cursoragent@cursor.com>
 Date: Thu, 30 Jul 2026 12:01:08 +0000
-Subject: [PATCH] docs: restitute Coolify SoT and mobile recovery to
+Subject: [PATCH 2/4] docs: restitute Coolify SoT and mobile recovery to
  banco-with-wael
 
 Lock deployment Source of Truth to waelzaid66-max/banco-with-wael and

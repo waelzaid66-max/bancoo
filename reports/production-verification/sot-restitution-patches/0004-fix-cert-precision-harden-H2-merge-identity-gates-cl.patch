@@ -1,0 +1,804 @@
+From fdbae4218f24117ee764dd266b22d3e507974df1 Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Thu, 30 Jul 2026 12:33:41 +0000
+Subject: [PATCH 4/4] fix(cert): precision-harden H2 merge, identity gates,
+ clean SoT branch
+
+Extract executable link-host-merge helpers with normalize/dedupe/replit
+reject; strengthen universal-link + confidence checks for exact
+com.bancooom.app; scope AASA paths; fix nginx MIME; drop unused map
+deps; supersede historical bancoo-as-SoT docs. Branch history no longer
+carries nested format-patch blobs.
+---
+ artifacts/banco-mobile/app.config.ts          | 101 +-------------
+ .../banco-mobile/lib/link-host-merge.mjs      | 114 ++++++++++++++++
+ artifacts/banco-mobile/package.json           |   2 -
+ .../tests/universal-links-config.test.mjs     | 127 +++++++++++++++---
+ deploy/coolify/nginx.conf                     |   4 +-
+ deploy/coolify/well-known/README.md           |   9 +-
+ .../well-known/apple-app-site-association     |   2 +-
+ docs/BANCO-SAFE-RECOVERY-EXECUTION-PLAN.md    |   4 +-
+ docs/DEPLOYMENT_PLAN.md                       |   6 +-
+ pnpm-lock.yaml                                |  34 -----
+ .../53-SOT-RECOVERY-AND-MOBILE-RESTITUTION.md |  15 ++-
+ .../FINAL_RELEASE_CERTIFICATION.md            |   9 +-
+ scripts/production-confidence-check.mjs       |  56 +++++++-
+ 13 files changed, 319 insertions(+), 164 deletions(-)
+ create mode 100644 artifacts/banco-mobile/lib/link-host-merge.mjs
+
+diff --git a/artifacts/banco-mobile/app.config.ts b/artifacts/banco-mobile/app.config.ts
+index 96acb38..b0f1f15 100644
+--- a/artifacts/banco-mobile/app.config.ts
++++ b/artifacts/banco-mobile/app.config.ts
+@@ -1,4 +1,9 @@
+ import type { ConfigContext, ExpoConfig } from "expo/config";
++import {
++  mergeAndroidAppLinkFilters,
++  mergeAssociatedDomains,
++  resolveWebAppLinkHost,
++} from "./lib/link-host-merge.mjs";
+ 
+ /**
+  * Deep-link / universal-link origin for expo-router static rendering.
+@@ -13,33 +18,7 @@ const routerOrigin =
+   process.env.EXPO_PUBLIC_PUBLIC_APP_URL?.trim() ||
+   "https://replit.com/";
+ 
+-/**
+- * HTTPS app-link host for Universal Links (iOS) and App Links (Android).
+- * Driven only by operator env — never hardcoded. Omitted when unset or replit.com.
+- */
+-function webAppLinkHost(): string | null {
+-  for (const raw of [
+-    process.env.EXPO_PUBLIC_PUBLIC_APP_URL,
+-    process.env.EXPO_PUBLIC_ROUTER_ORIGIN,
+-    process.env.EXPO_ROUTER_ORIGIN,
+-  ]) {
+-    const t = raw?.trim();
+-    if (!t) continue;
+-    try {
+-      const url = t.includes("://") ? new URL(t) : new URL(`https://${t}`);
+-      const host = url.hostname;
+-      if (!host || host === "replit.com" || host.endsWith(".replit.dev")) {
+-        continue;
+-      }
+-      return host;
+-    } catch {
+-      /* try next */
+-    }
+-  }
+-  return null;
+-}
+-
+-const webHost = webAppLinkHost();
++const webHost = resolveWebAppLinkHost(process.env);
+ 
+ function withRouterOrigin(plugins: ExpoConfig["plugins"]): ExpoConfig["plugins"] {
+   return (plugins ?? []).map((plugin) => {
+@@ -52,74 +31,6 @@ function withRouterOrigin(plugins: ExpoConfig["plugins"]): ExpoConfig["plugins"]
+   });
+ }
+ 
+-type AndroidIntentFilter = NonNullable<
+-  NonNullable<ExpoConfig["android"]>["intentFilters"]
+->[number];
+-
+-/**
+- * Collect HTTPS hosts already declared on Android intent filters (from app.json).
+- * Used so an env-driven primary host ADDS to the multi-host set instead of
+- * wiping banco.deals / banco.autos (H2 regression).
+- */
+-function hostsFromIntentFilters(
+-  filters: NonNullable<ExpoConfig["android"]>["intentFilters"] | undefined,
+-): string[] {
+-  const hosts: string[] = [];
+-  for (const filter of filters ?? []) {
+-    const data = filter.data;
+-    const entries = Array.isArray(data) ? data : data ? [data] : [];
+-    for (const entry of entries) {
+-      if (
+-        entry &&
+-        typeof entry === "object" &&
+-        "host" in entry &&
+-        typeof entry.host === "string" &&
+-        entry.host.length > 0
+-      ) {
+-        hosts.push(entry.host);
+-      }
+-    }
+-  }
+-  return hosts;
+-}
+-
+-/**
+- * Merge app.json multi-host App Links with the env primary host.
+- * Path prefixes stay production-safe (/l, /listing) for every host in the union.
+- */
+-function mergeAndroidAppLinkFilters(
+-  existing: NonNullable<ExpoConfig["android"]>["intentFilters"] | undefined,
+-  primaryHost: string,
+-): AndroidIntentFilter[] {
+-  const hosts = Array.from(
+-    new Set([...hostsFromIntentFilters(existing), primaryHost]),
+-  );
+-  return [
+-    {
+-      action: "VIEW",
+-      autoVerify: true,
+-      data: hosts.flatMap((host) => [
+-        { scheme: "https", host, pathPrefix: "/l" },
+-        { scheme: "https", host, pathPrefix: "/listing" },
+-      ]),
+-      category: ["BROWSABLE", "DEFAULT"],
+-    },
+-  ];
+-}
+-
+-function mergeAssociatedDomains(
+-  existing: string[] | undefined,
+-  primaryHost: string,
+-): string[] {
+-  return Array.from(
+-    new Set([
+-      ...(existing ?? []),
+-      `applinks:${primaryHost}`,
+-      `webcredentials:${primaryHost}`,
+-    ]),
+-  );
+-}
+-
+ // Canonical dynamic-config pattern: `config` IS the parsed app.json, so the
+ // static store config (bundle ids, permissions, icons) stays the single source
+ // of truth and this file only layers the env-driven link/origin bits on top.
+diff --git a/artifacts/banco-mobile/lib/link-host-merge.mjs b/artifacts/banco-mobile/lib/link-host-merge.mjs
+new file mode 100644
+index 0000000..55cfc1d
+--- /dev/null
++++ b/artifacts/banco-mobile/lib/link-host-merge.mjs
+@@ -0,0 +1,114 @@
++/**
++ * Pure helpers for Universal Links / App Links host merging (H2).
++ * Kept as .mjs so node:test can execute them without a TS compile step.
++ * app.config.ts imports the same module — one source of truth.
++ */
++
++/**
++ * Normalize a hostname for App Link membership.
++ * Returns null when empty, whitespace-only, or a rejected host (replit).
++ */
++export function normalizeAppLinkHost(raw) {
++  if (typeof raw !== "string") return null;
++  const trimmed = raw.trim().replace(/\.$/, "").toLowerCase();
++  if (!trimmed) return null;
++  if (trimmed === "replit.com" || trimmed.endsWith(".replit.dev")) return null;
++  return trimmed;
++}
++
++/**
++ * Resolve the env-driven primary HTTPS app-link host.
++ * Never hardcodes production domains. Skips replit origins.
++ */
++export function resolveWebAppLinkHost(env = process.env) {
++  for (const key of [
++    "EXPO_PUBLIC_PUBLIC_APP_URL",
++    "EXPO_PUBLIC_ROUTER_ORIGIN",
++    "EXPO_ROUTER_ORIGIN",
++  ]) {
++    const t = env[key]?.trim();
++    if (!t) continue;
++    try {
++      const url = t.includes("://") ? new URL(t) : new URL(`https://${t}`);
++      const host = normalizeAppLinkHost(url.hostname);
++      if (host) return host;
++    } catch {
++      /* try next */
++    }
++  }
++  return null;
++}
++
++/**
++ * Collect HTTPS hosts already declared on Android intent filters (from app.json).
++ */
++export function hostsFromIntentFilters(filters) {
++  const hosts = [];
++  for (const filter of filters ?? []) {
++    const data = filter?.data;
++    const entries = Array.isArray(data) ? data : data ? [data] : [];
++    for (const entry of entries) {
++      if (
++        entry &&
++        typeof entry === "object" &&
++        typeof entry.host === "string"
++      ) {
++        const host = normalizeAppLinkHost(entry.host);
++        if (host) hosts.push(host);
++      }
++    }
++  }
++  return hosts;
++}
++
++/**
++ * Merge app.json multi-host App Links with the env primary host.
++ * Path prefixes stay production-safe (/l, /listing) for every host in the union.
++ */
++export function mergeAndroidAppLinkFilters(existing, primaryHost) {
++  const primary = normalizeAppLinkHost(primaryHost);
++  if (!primary) {
++    return existing ?? [];
++  }
++  const hosts = Array.from(
++    new Set([...hostsFromIntentFilters(existing), primary]),
++  );
++  return [
++    {
++      action: "VIEW",
++      autoVerify: true,
++      data: hosts.flatMap((host) => [
++        { scheme: "https", host, pathPrefix: "/l" },
++        { scheme: "https", host, pathPrefix: "/listing" },
++      ]),
++      category: ["BROWSABLE", "DEFAULT"],
++    },
++  ];
++}
++
++/**
++ * Union iOS associatedDomains with applinks/webcredentials for primary host.
++ * Normalizes existing applinks:/webcredentials: entries; drops replit / blank.
++ */
++export function mergeAssociatedDomains(existing, primaryHost) {
++  const primary = normalizeAppLinkHost(primaryHost);
++  const out = new Set();
++  for (const entry of existing ?? []) {
++    if (typeof entry !== "string") continue;
++    const raw = entry.trim();
++    if (!raw) continue;
++    const m = /^(applinks|webcredentials):(.+)$/i.exec(raw);
++    if (!m) {
++      out.add(raw);
++      continue;
++    }
++    const host = normalizeAppLinkHost(m[2]);
++    if (!host) continue;
++    out.add(`${m[1].toLowerCase()}:${host}`);
++  }
++  if (primary) {
++    out.add(`applinks:${primary}`);
++    out.add(`webcredentials:${primary}`);
++  }
++  return Array.from(out);
++}
+diff --git a/artifacts/banco-mobile/package.json b/artifacts/banco-mobile/package.json
+index 3e6d7c3..4d61415 100644
+--- a/artifacts/banco-mobile/package.json
++++ b/artifacts/banco-mobile/package.json
+@@ -39,7 +39,6 @@
+     "@expo-google-fonts/inter": "^0.4.0",
+     "@expo/metro-runtime": "^6.1.2",
+     "@expo/vector-icons": "15.0.3",
+-    "@googlemaps/markerclusterer": "^2.6.2",
+     "@react-native-async-storage/async-storage": "2.2.0",
+     "@react-navigation/bottom-tabs": "^7.4.0",
+     "@react-navigation/core": "^7.1.8",
+@@ -50,7 +49,6 @@
+     "@stardazed/streams-text-encoding": "^1.0.2",
+     "@tanstack/react-query": "catalog:",
+     "@ungap/structured-clone": "^1.3.0",
+-    "@vis.gl/react-google-maps": "^1.8.3",
+     "@workspace/api-client-react": "workspace:*",
+     "@workspace/search-contract": "workspace:*",
+     "@workspace/taxonomy": "workspace:*",
+diff --git a/artifacts/banco-mobile/tests/universal-links-config.test.mjs b/artifacts/banco-mobile/tests/universal-links-config.test.mjs
+index 7b9e563..debbe3f 100644
+--- a/artifacts/banco-mobile/tests/universal-links-config.test.mjs
++++ b/artifacts/banco-mobile/tests/universal-links-config.test.mjs
+@@ -3,27 +3,113 @@ import fs from "node:fs";
+ import path from "node:path";
+ import test from "node:test";
+ import { fileURLToPath } from "node:url";
++import {
++  hostsFromIntentFilters,
++  mergeAndroidAppLinkFilters,
++  mergeAssociatedDomains,
++  normalizeAppLinkHost,
++  resolveWebAppLinkHost,
++} from "../lib/link-host-merge.mjs";
+ 
+ const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+ const APP_CONFIG = path.join(APP_ROOT, "app.config.ts");
++const CANONICAL_PACKAGE = "com.bancooom.app";
++const FORBIDDEN_PACKAGE = "com.bancoboom.app";
+ 
+-test("app.config.ts wires Universal/App Links from env (not hardcoded)", () => {
++test("app.config.ts wires Universal/App Links from shared merge module", () => {
+   const src = fs.readFileSync(APP_CONFIG, "utf8");
+-  assert.match(src, /webAppLinkHost/);
+-  assert.match(src, /associatedDomains/);
+-  assert.match(src, /intentFilters/);
++  assert.match(src, /link-host-merge\.mjs/);
++  assert.match(src, /resolveWebAppLinkHost/);
++  assert.match(src, /mergeAssociatedDomains/);
++  assert.match(src, /mergeAndroidAppLinkFilters/);
+   assert.match(src, /EXPO_PUBLIC_ROUTER_ORIGIN/);
+   assert.doesNotMatch(src, /applinks:banco\./i);
+ });
+ 
+-test("app.config.ts merges env host into app.json multi-host set (H2)", () => {
+-  const src = fs.readFileSync(APP_CONFIG, "utf8");
+-  // Must union hosts — never replace app.json associatedDomains / intentFilters wholesale.
+-  assert.match(src, /mergeAssociatedDomains/);
+-  assert.match(src, /mergeAndroidAppLinkFilters/);
+-  assert.match(src, /hostsFromIntentFilters/);
+-  assert.match(src, /config\.ios\?\.associatedDomains/);
+-  assert.match(src, /config\.android\?\.intentFilters/);
++test("normalizeAppLinkHost rejects empty, whitespace, and replit hosts", () => {
++  assert.equal(normalizeAppLinkHost(""), null);
++  assert.equal(normalizeAppLinkHost("   "), null);
++  assert.equal(normalizeAppLinkHost("replit.com"), null);
++  assert.equal(normalizeAppLinkHost("foo.replit.dev"), null);
++  assert.equal(normalizeAppLinkHost(" Banco.Today. "), "banco.today");
++  assert.equal(normalizeAppLinkHost("BANCO.DEALS."), "banco.deals");
++});
++
++test("resolveWebAppLinkHost skips replit and blank env", () => {
++  assert.equal(resolveWebAppLinkHost({}), null);
++  assert.equal(
++    resolveWebAppLinkHost({ EXPO_PUBLIC_PUBLIC_APP_URL: "https://replit.com/" }),
++    null,
++  );
++  assert.equal(
++    resolveWebAppLinkHost({
++      EXPO_PUBLIC_PUBLIC_APP_URL: "https://www.banco.today/",
++    }),
++    "www.banco.today",
++  );
++  assert.equal(
++    resolveWebAppLinkHost({
++      EXPO_PUBLIC_PUBLIC_APP_URL: "   ",
++      EXPO_PUBLIC_ROUTER_ORIGIN: "https://banco.autos",
++    }),
++    "banco.autos",
++  );
++});
++
++test("H2 merge unions env host with app.json hosts (no wipe)", () => {
++  const existingFilters = [
++    {
++      action: "VIEW",
++      autoVerify: true,
++      data: [
++        { scheme: "https", host: "banco.today", pathPrefix: "/l" },
++        { scheme: "https", host: "banco.deals", pathPrefix: "/l" },
++        { scheme: "https", host: "banco.autos", pathPrefix: "/l" },
++        { scheme: "https", host: "  Banco.Today  ", pathPrefix: "/listing" },
++        { scheme: "https", host: "replit.com", pathPrefix: "/l" },
++      ],
++      category: ["BROWSABLE", "DEFAULT"],
++    },
++  ];
++  const merged = mergeAndroidAppLinkFilters(existingFilters, "WWW.BANCO.TODAY");
++  assert.equal(merged.length, 1);
++  const hosts = hostsFromIntentFilters(merged);
++  assert.deepEqual(
++    [...new Set(hosts)].toSorted(),
++    ["banco.autos", "banco.deals", "banco.today", "www.banco.today"],
++  );
++  assert.ok(!hosts.includes("replit.com"));
++  for (const host of hosts) {
++    const prefixes = merged[0].data
++      .filter((d) => d.host === host)
++      .map((d) => d.pathPrefix)
++      .toSorted();
++    assert.deepEqual(prefixes, ["/l", "/listing"]);
++  }
++});
++
++test("H2 associatedDomains unions and normalizes", () => {
++  const merged = mergeAssociatedDomains(
++    [
++      "applinks:banco.today",
++      "applinks:BANCO.TODAY",
++      "webcredentials:banco.deals",
++      "applinks:replit.com",
++      "  ",
++      "applinks: banco.autos.",
++    ],
++    "www.banco.today",
++  );
++  assert.deepEqual(
++    merged.toSorted(),
++    [
++      "applinks:banco.autos",
++      "applinks:banco.today",
++      "applinks:www.banco.today",
++      "webcredentials:banco.deals",
++      "webcredentials:www.banco.today",
++    ],
++  );
+ });
+ 
+ test("nginx + Dockerfile.web ship well-known AASA/assetlinks templates", () => {
+@@ -37,9 +123,16 @@ test("nginx + Dockerfile.web ship well-known AASA/assetlinks templates", () => {
+   );
+   assert.ok(fs.existsSync(aasa), "AASA template missing");
+   assert.ok(fs.existsSync(assetlinks), "assetlinks template missing");
+-  assert.match(fs.readFileSync(aasa, "utf8"), /REPLACE_APPLE_TEAM_ID/);
+-  assert.match(fs.readFileSync(assetlinks, "utf8"), /REPLACE_PLAY_APP_SIGNING_SHA256/);
++  const aasaText = fs.readFileSync(aasa, "utf8");
++  const assetText = fs.readFileSync(assetlinks, "utf8");
++  assert.match(aasaText, /REPLACE_APPLE_TEAM_ID/);
++  assert.match(aasaText, new RegExp(CANONICAL_PACKAGE.replace(/\./g, "\\.")));
++  assert.doesNotMatch(aasaText, new RegExp(FORBIDDEN_PACKAGE.replace(/\./g, "\\.")));
++  assert.match(assetText, /REPLACE_PLAY_APP_SIGNING_SHA256/);
++  assert.match(assetText, new RegExp(CANONICAL_PACKAGE.replace(/\./g, "\\.")));
++  assert.doesNotMatch(assetText, new RegExp(FORBIDDEN_PACKAGE.replace(/\./g, "\\.")));
+   assert.match(nginx, /\.well-known/);
++  assert.match(nginx, /default_type\s+application\/json/);
+   assert.match(dockerfile, /well-known\/apple-app-site-association/);
+   assert.match(dockerfile, /well-known\/assetlinks\.json/);
+ });
+@@ -52,8 +145,10 @@ test("custom scheme bancooom remains in app.json", () => {
+ test("Expo product identity stays canonical (BANCO / com.bancooom.app)", () => {
+   const json = JSON.parse(fs.readFileSync(path.join(APP_ROOT, "app.json"), "utf8"));
+   assert.equal(json.expo.name, "BANCO");
+-  assert.equal(json.expo.ios?.bundleIdentifier, "com.bancooom.app");
+-  assert.equal(json.expo.android?.package, "com.bancooom.app");
++  assert.equal(json.expo.ios?.bundleIdentifier, CANONICAL_PACKAGE);
++  assert.equal(json.expo.android?.package, CANONICAL_PACKAGE);
++  assert.notEqual(json.expo.ios?.bundleIdentifier, FORBIDDEN_PACKAGE);
++  assert.notEqual(json.expo.android?.package, FORBIDDEN_PACKAGE);
+   // Slug may stay bancoboom for EAS project continuity — scheme/package are SoT.
+   assert.equal(json.expo.scheme, "bancooom");
+ });
+diff --git a/deploy/coolify/nginx.conf b/deploy/coolify/nginx.conf
+index 3f117d3..4221803 100644
+--- a/deploy/coolify/nginx.conf
++++ b/deploy/coolify/nginx.conf
+@@ -47,10 +47,10 @@ server {
+     # ---- Universal Links / App Links (AASA + Digital Asset Links) ----------
+     # Served from deploy/coolify/well-known/ (copied into the image). OPS must
+     # replace REPLACE_* placeholders with Apple Team ID + Play signing SHA-256
+-    # before store verification will succeed. No redirects; fixed Content-Type.
++    # before store verification will succeed. No redirects.
++    # Use default_type only — do not also add_header Content-Type (duplicate MIME).
+     location ^~ /.well-known/ {
+         default_type application/json;
+-        add_header Content-Type "application/json" always;
+         try_files $uri =404;
+     }
+ 
+diff --git a/deploy/coolify/well-known/README.md b/deploy/coolify/well-known/README.md
+index 6eec08d..2aa3168 100644
+--- a/deploy/coolify/well-known/README.md
++++ b/deploy/coolify/well-known/README.md
+@@ -3,6 +3,11 @@
+ These files are copied into the `web` (nginx) image at `/.well-known/` so iOS
+ Universal Links and Android App Links can verify after DNS points at Coolify.
+ 
++**Package identity (SoT):** `com.bancooom.app` only — never `com.bancoboom.app`.
++
++AASA `paths` are scoped to listing deep links (`/l`, `/listing`) to match Android
++`pathPrefix` filters — not a blanket `*`.
++
+ ## Placeholders (MUST replace before store verification)
+ 
+ | File | Placeholder | Source |
+@@ -23,5 +28,5 @@ curl -sSI https://banco.today/.well-known/apple-app-site-association
+ curl -sS https://banco.today/.well-known/assetlinks.json
+ ```
+ 
+-AASA must be `application/json` (nginx sets this). HTTP 200 with real Team ID /
+-SHA-256 is required for store deep-link verification.
++AASA must be `application/json` (`default_type` in nginx). HTTP 200 with real
++Team ID / SHA-256 is required for store deep-link verification.
+diff --git a/deploy/coolify/well-known/apple-app-site-association b/deploy/coolify/well-known/apple-app-site-association
+index eacfaa4..ac82db1 100644
+--- a/deploy/coolify/well-known/apple-app-site-association
++++ b/deploy/coolify/well-known/apple-app-site-association
+@@ -4,7 +4,7 @@
+     "details": [
+       {
+         "appID": "REPLACE_APPLE_TEAM_ID.com.bancooom.app",
+-        "paths": ["*", "/l/*", "/listing/*"]
++        "paths": ["/l", "/l/*", "/listing", "/listing/*"]
+       }
+     ]
+   },
+diff --git a/docs/BANCO-SAFE-RECOVERY-EXECUTION-PLAN.md b/docs/BANCO-SAFE-RECOVERY-EXECUTION-PLAN.md
+index 761aae1..8d4ca99 100644
+--- a/docs/BANCO-SAFE-RECOVERY-EXECUTION-PLAN.md
++++ b/docs/BANCO-SAFE-RECOVERY-EXECUTION-PLAN.md
+@@ -1,6 +1,8 @@
+ # BANCO MARKET — Safe Recovery & Execution Plan (SoT)
+ 
+-> **Owner:** Production Chief Architect (Claude) · **Target repo:** `bancoo` (source of truth) · **Deploy:** Coolify (approved) · **Date:** 2026-07-25
++> **SUPERSEDED (2026-07-30):** Authoritative Coolify SoT is **`waelzaid66-max/banco-with-wael`** with mobile **`com.bancooom.app`**. See `docs/DEPLOYMENT_SOURCE_OF_TRUTH.md`. The line below that named `bancoo` as SoT is **historical only**.
++
++> **Owner:** Production Chief Architect (Claude) · **Target repo (historical):** `bancoo` · **Deploy:** Coolify (approved) · **Date:** 2026-07-25
+ > Evidence-based (code wins over docs). No guessing — unproven items marked UNKNOWN. Every fix has Impact + Rollback + Confidence. **No code until owner approves this plan.**
+ 
+ ## 0. OWNER DECISIONS — LOCKED (resolve the prior audit's open F0)
+diff --git a/docs/DEPLOYMENT_PLAN.md b/docs/DEPLOYMENT_PLAN.md
+index 551e993..bbd9b70 100644
+--- a/docs/DEPLOYMENT_PLAN.md
++++ b/docs/DEPLOYMENT_PLAN.md
+@@ -1,6 +1,8 @@
+ # DEPLOYMENT_PLAN — BANCO / B-OOM
+ 
+-> Phase 4.5 · repo `bancoo` @ `66d2949`. Detected targets: Replit · Docker · AWS (EB/EC2) · GCP (Cloud Build) · Coolify · Vercel.
++> **SUPERSEDED (2026-07-30):** Coolify / product Source of Truth is **`waelzaid66-max/banco-with-wael`** only — mobile identity **`com.bancooom.app`**. See `docs/DEPLOYMENT_SOURCE_OF_TRUTH.md`. This file is historical (written when target was sister repo `bancoo`); do **not** deploy Coolify from it.
++
++> Phase 4.5 · repo `bancoo` @ `66d2949` (historical). Detected targets: Replit · Docker · AWS (EB/EC2) · GCP (Cloud Build) · Coolify · Vercel.
+ 
+ ## 1. Deployment surfaces (detected)
+ | Target | Config | What deploys | Notes |
+@@ -25,7 +27,7 @@
+ - **Native:** Expo/EAS (`eas.json`) → AAB. Verify `expo-doctor` before store builds.
+ 
+ ## 4. Recommended zero-downtime path (for expansion)
+-1. **Single source of truth = this repo (`bancoo`).** All targets build from it.
++1. **Single source of truth = `waelzaid66-max/banco-with-wael` (see `DEPLOYMENT_SOURCE_OF_TRUTH.md`).** Historical drafts named sister `bancoo`; that is obsolete for Coolify.
+ 2. **API:** container (Docker) behind LB — rolling deploy (EB/Cloud Run/Coolify all support it). Health `/status` + `/api/healthz|readyz`.
+ 3. **DB migrations:** run as a gated pre-deploy step (see `deploy/gcp/TRIGGER_MIGRATION.md`) — additive, reversible, never blocking `app.listen`.
+ 4. **Mobile web:** rebuild `static-build` on every deploy; cache-bust the served bundle.
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index fc66eb9..8383ff4 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -511,9 +511,6 @@ importers:
+       '@expo/vector-icons':
+         specifier: 15.0.3
+         version: 15.0.3(expo-font@14.0.12(expo@54.0.36)(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+-      '@googlemaps/markerclusterer':
+-        specifier: ^2.6.2
+-        version: 2.6.2
+       '@react-native-async-storage/async-storage':
+         specifier: 2.2.0
+         version: 2.2.0(react-native@0.81.5(@babel/core@7.29.6)(@types/react@19.1.17)(react@19.1.0))
+@@ -544,9 +541,6 @@ importers:
+       '@ungap/structured-clone':
+         specifier: ^1.3.0
+         version: 1.3.1
+-      '@vis.gl/react-google-maps':
+-        specifier: ^1.8.3
+-        version: 1.8.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+       '@workspace/api-client-react':
+         specifier: workspace:*
+         version: link:../../lib/api-client-react
+@@ -2485,9 +2479,6 @@ packages:
+   '@googlemaps/js-api-loader@2.1.1':
+     resolution: {integrity: sha512-yUpAwksbHrlZIWD49JmveNSfBG4oAK0AwMknfSaPMnP5N7UT8oFRVCqwjGb1XQovi//7KLbPQKZpbofiLGzpDw==}
+ 
+-  '@googlemaps/markerclusterer@2.6.2':
+-    resolution: {integrity: sha512-U6uVhq8iWhiIckA89sgRu8OK35mjd6/3CuoZKWakKEf0QmRRWpatlsPb3kqXkoWSmbcZkopRiI4dnW6DQSd7bQ==}
+-
+   '@hookform/resolvers@3.10.0':
+     resolution: {integrity: sha512-79Dv+3mDF7i+2ajj7SkypSKHhl1cbln1OGavqrsF7p6mbUv11xpqpacPsGDCTRvCSjEEIez2ef1NveSVL3b0Ag==}
+     peerDependencies:
+@@ -4440,9 +4431,6 @@ packages:
+   '@types/stack-utils@2.0.3':
+     resolution: {integrity: sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==}
+ 
+-  '@types/supercluster@7.1.3':
+-    resolution: {integrity: sha512-Z0pOY34GDFl3Q6hUFYf3HkTwKEE02e7QgtJppBt+beEAxnyOpJua+voGFvxINBHa06GwLFFym7gRPY2SiKIfIA==}
+-
+   '@types/tough-cookie@4.0.5':
+     resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
+ 
+@@ -6592,9 +6580,6 @@ packages:
+   jws@4.0.1:
+     resolution: {integrity: sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==}
+ 
+-  kdbush@4.1.0:
+-    resolution: {integrity: sha512-e9vurzrXJQrFX6ckpHP3bvj5l+9CnYzkxDNnNQ1h2QTqdWsUAJgXiKdGNcOa1EY85dU8KbQ+z/FdQdB7P+9yfQ==}
+-
+   keyv@4.5.4:
+     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
+ 
+@@ -8105,9 +8090,6 @@ packages:
+     engines: {node: '>=16 || 14 >=14.17'}
+     hasBin: true
+ 
+-  supercluster@8.0.1:
+-    resolution: {integrity: sha512-IiOea5kJ9iqzD2t7QJq/cREyLHTtSmUT6gQsweojg9WH2sYJqZK9SswTu6jrscO6D1G5v5vYZ9ru/eq85lXeZQ==}
+-
+   supports-color@5.5.0:
+     resolution: {integrity: sha512-QjVjwdXIt408MIiAqCX4oUKsgU2EqAGzs2Ppkm4aQYbjm+ZEWEcW4SfFNTr4uMNZma0ey4f5lgLrkB0aX0QMow==}
+     engines: {node: '>=4'}
+@@ -10297,12 +10279,6 @@ snapshots:
+     dependencies:
+       '@types/google.maps': 3.65.1
+ 
+-  '@googlemaps/markerclusterer@2.6.2':
+-    dependencies:
+-      '@types/supercluster': 7.1.3
+-      fast-equals: 5.4.0
+-      supercluster: 8.0.1
+-
+   '@hookform/resolvers@3.10.0(react-hook-form@7.79.0(react@19.1.0))':
+     dependencies:
+       react-hook-form: 7.79.0(react@19.1.0)
+@@ -12770,10 +12746,6 @@ snapshots:
+ 
+   '@types/stack-utils@2.0.3': {}
+ 
+-  '@types/supercluster@7.1.3':
+-    dependencies:
+-      '@types/geojson': 7946.0.16
+-
+   '@types/tough-cookie@4.0.5': {}
+ 
+   '@types/unist@3.0.3': {}
+@@ -15059,8 +15031,6 @@ snapshots:
+       jwa: 2.0.1
+       safe-buffer: 5.2.1
+ 
+-  kdbush@4.1.0: {}
+-
+   keyv@4.5.4:
+     dependencies:
+       json-buffer: 3.0.1
+@@ -16867,10 +16837,6 @@ snapshots:
+       tinyglobby: 0.2.17
+       ts-interface-checker: 0.1.13
+ 
+-  supercluster@8.0.1:
+-    dependencies:
+-      kdbush: 4.1.0
+-
+   supports-color@5.5.0:
+     dependencies:
+       has-flag: 3.0.0
+diff --git a/reports/production-verification/53-SOT-RECOVERY-AND-MOBILE-RESTITUTION.md b/reports/production-verification/53-SOT-RECOVERY-AND-MOBILE-RESTITUTION.md
+index 729fbf7..e82a865 100644
+--- a/reports/production-verification/53-SOT-RECOVERY-AND-MOBILE-RESTITUTION.md
++++ b/reports/production-verification/53-SOT-RECOVERY-AND-MOBILE-RESTITUTION.md
+@@ -92,7 +92,20 @@ Base: `origin/main` (`b7212bf`)
+ | Docker `Dockerfile.web` → `banco-web-static-cert:rerun` | **PASS** (well-known = `com.bancooom.app`, no `bancoboom`) |
+ | Live DNS/HTTP | Apex Replit 404; www Horizons; well-known not JSON; `api.banco.today` NXDOMAIN; `banco.autos` TLS fail |
+ 
+-Local tip: **`95c87af`** (+ cert doc refresh commit after this re-run).
++Local tip: **`precision-hardening` commit after clean 3-commit rewrite** (no nested patch blobs).
++
++### Precision hardening (this iteration)
++
++| Fix | Detail |
++|-----|--------|
++| Clean history | Dropped nested `format-patch` commits from SoT branch |
++| H2 merge module | `lib/link-host-merge.mjs` — normalize, reject replit/blank, dedupe case/dot |
++| Executable tests | 8 universal-link tests including real merge output |
++| Confidence gates | Exact SoT identity; parse AASA/assetlinks JSON; forbid `bancoboom`; COPY both well-known files |
++| nginx MIME | `default_type` only (no duplicate `add_header Content-Type`) |
++| AASA paths | Scoped to `/l` + `/listing` (no blanket `*`) |
++| Unused deps | Removed unused `@googlemaps/markerclusterer` + `@vis.gl/react-google-maps` |
++| Historical docs | `DEPLOYMENT_PLAN.md` + `BANCO-SAFE-RECOVERY-EXECUTION-PLAN.md` marked SUPERSEDED |
+ 
+ ---
+ 
+diff --git a/reports/production-verification/FINAL_RELEASE_CERTIFICATION.md b/reports/production-verification/FINAL_RELEASE_CERTIFICATION.md
+index a386c79..1804d53 100644
+--- a/reports/production-verification/FINAL_RELEASE_CERTIFICATION.md
++++ b/reports/production-verification/FINAL_RELEASE_CERTIFICATION.md
+@@ -13,7 +13,7 @@
+ 
+ ## 1. Executive Summary
+ 
+-The monorepo **is ready as a Coolify/EAS deploy artifact set**: typecheck, ESLint, chain integrity (167/167), production-confidence (16/16), mobile regression pack (150/150), deploy-artifacts (37/37), and Docker image builds for `Dockerfile.api` / `Dockerfile.web` all pass on the **2026-07-30 re-verification** pass (local SoT tip `95c87af`).
++The monorepo **is ready as a Coolify/EAS deploy artifact set**: typecheck, ESLint, chain integrity (167/167), production-confidence (16/16), mobile regression pack (incl. executable H2 merge tests), deploy-artifacts (37/37), Expo config resolve, and Docker image builds for `Dockerfile.api` / `Dockerfile.web` all pass on the **2026-07-30 precision-hardening** pass (clean SoT branch — no nested patch blobs).
+ 
+ **Live production is not certified.** Public DNS still points apex `banco.today` at a Replit placeholder and `www.banco.today` at Hostinger Horizons. Coolify secrets, migrate, EAS env bake, real AASA/assetlinks values, and device smoke remain external.
+ 
+@@ -31,13 +31,14 @@ The monorepo **is ready as a Coolify/EAS deploy artifact set**: typecheck, ESLin
+ | Typecheck (libs + mobile via confidence) | PASS |
+ | ESLint (`scripts --max-warnings 0`) | PASS |
+ | Chain integrity gate | **167/167 PASS** |
+-| Production confidence | **16/16 PASS** |
+-| Mobile `node --test tests/*.mjs` | **150/150 PASS** |
++| Production confidence | **16/16 PASS** (exact identity + parsed well-known JSON) |
++| Mobile regression pack | **PASS** (universal-links **8/8** executable merge) |
++| `expo config` resolve (H2 merge) | **PASS** (`www.banco.today` unions with app.json hosts) |
+ | Deploy artifacts verify | **37/37 PASS** |
+ | Identity | **`com.bancooom.app` / `bancooom` / `BANCO`** |
+ | OpenAPI (`lib/api-spec/openapi.yaml`, server `/api`) | PASS structure |
+ | Layout (`artifacts/*`, `deploy/coolify/*`, `lib/*`) | Intact |
+-| In-repo gaps remaining open | **0** |
++| In-repo gaps remaining open | **0** (precision hardening closed soft gaps) |
+ 
+ ---
+ 
+diff --git a/scripts/production-confidence-check.mjs b/scripts/production-confidence-check.mjs
+index 0a95321..8e60d68 100644
+--- a/scripts/production-confidence-check.mjs
++++ b/scripts/production-confidence-check.mjs
+@@ -94,10 +94,24 @@ function checkExpoConfig() {
+     } else {
+       pass("app.json eas projectId");
+     }
+-    if (!json.expo?.android?.package || !json.expo?.ios?.bundleIdentifier) {
++    const androidPkg = json.expo?.android?.package;
++    const iosBundle = json.expo?.ios?.bundleIdentifier;
++    const scheme = json.expo?.scheme;
++    const name = json.expo?.name;
++    if (!androidPkg || !iosBundle) {
+       fail("app identifiers", "android.package / ios.bundleIdentifier required");
++    } else if (
++      androidPkg !== "com.bancooom.app" ||
++      iosBundle !== "com.bancooom.app" ||
++      scheme !== "bancooom" ||
++      name !== "BANCO"
++    ) {
++      fail(
++        "app identifiers",
++        `canonical SoT identity required (BANCO / bancooom / com.bancooom.app); got name=${name} scheme=${scheme} android=${androidPkg} ios=${iosBundle}`,
++      );
+     } else {
+-      pass("app identifiers");
++      pass("app identifiers", "BANCO / bancooom / com.bancooom.app");
+     }
+     if (!fs.existsSync(appConfig)) {
+       fail("app.config.ts", "missing â€” expo-router origin should be dynamic");
+@@ -233,6 +247,10 @@ function checkWellKnownTemplates() {
+   }
+   const aasaText = fs.readFileSync(aasa, "utf8");
+   const assetText = fs.readFileSync(assetlinks, "utf8");
++  if (aasaText.includes("com.bancoboom.app") || assetText.includes("com.bancoboom.app")) {
++    fail("well-known identity", "forbidden sister package com.bancoboom.app present");
++    return;
++  }
+   if (!aasaText.includes("com.bancooom.app")) {
+     fail("well-known AASA", "must target com.bancooom.app");
+     return;
+@@ -241,16 +259,46 @@ function checkWellKnownTemplates() {
+     fail("well-known assetlinks", "must target com.bancooom.app");
+     return;
+   }
++  try {
++    const assetJson = JSON.parse(assetText);
++    const pkg = assetJson?.[0]?.target?.package_name;
++    if (pkg !== "com.bancooom.app") {
++      fail("well-known assetlinks JSON", `package_name must be com.bancooom.app (got ${pkg})`);
++      return;
++    }
++  } catch (e) {
++    fail("well-known assetlinks JSON", e instanceof Error ? e.message : String(e));
++    return;
++  }
++  try {
++    const aasaJson = JSON.parse(aasaText);
++    const appId = aasaJson?.applinks?.details?.[0]?.appID ?? "";
++    if (!String(appId).endsWith(".com.bancooom.app")) {
++      fail("well-known AASA JSON", `appID must end with .com.bancooom.app (got ${appId})`);
++      return;
++    }
++    if (String(appId).includes("bancoboom")) {
++      fail("well-known AASA JSON", "forbidden bancoboom in appID");
++      return;
++    }
++  } catch (e) {
++    fail("well-known AASA JSON", e instanceof Error ? e.message : String(e));
++    return;
++  }
+   const nginxText = fs.readFileSync(nginx, "utf8");
+   const dfText = fs.readFileSync(dockerfile, "utf8");
+-  if (!nginxText.includes(".well-known")) {
+-    fail("well-known nginx", "nginx.conf must serve /.well-known/");
++  if (!nginxText.includes(".well-known") || !nginxText.includes("default_type application/json")) {
++    fail("well-known nginx", "nginx.conf must serve /.well-known/ with default_type application/json");
+     return;
+   }
+   if (!dfText.includes("well-known/apple-app-site-association")) {
+     fail("well-known Dockerfile.web", "must COPY AASA into the nginx image");
+     return;
+   }
++  if (!dfText.includes("well-known/assetlinks.json")) {
++    fail("well-known Dockerfile.web", "must COPY assetlinks.json into the nginx image");
++    return;
++  }
+   const placeholdersPresent =
+     aasaText.includes("REPLACE_APPLE_TEAM_ID") ||
+     assetText.includes("REPLACE_PLAY_APP_SIGNING_SHA256");
+-- 
+2.43.0
+

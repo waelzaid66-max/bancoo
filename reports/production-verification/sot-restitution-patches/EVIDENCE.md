@@ -1,20 +1,16 @@
-# SoT re-run evidence — 2026-07-30
+# SoT precision re-run — 2026-07-30
 
-## Auth
+## Auth (still)
 - Installation repos: bancoo only (total_count=1)
 - SoT push: 403 Permission denied to cursor[bot]
-- bancoo create-ref: 201 (write OK)
 
-## Gates on /tmp/repo-audit/banco-with-wael @ 9999824
-- confidence 16/16
+## Local tip
+`fdbae42` on clean 4-commit branch (no nested format-patch blobs)
+
+## Gates
+- confidence 16/16 (exact identity + JSON well-known)
 - chain 167/167
-- mobile 150/150
-- deploy artifacts 37/37
-- docker banco-api-cert:rerun PASS
-- docker banco-web-static-cert:rerun PASS (com.bancooom.app)
-
-## Live
-- banco.today 404 Replit
-- www.banco.today 200 Horizons
-- well-known not real JSON on public hosts
-- api.banco.today NXDOMAIN
+- universal-links 8/8 (executable merge)
+- mobile pack PASS
+- expo config PASS (www.banco.today ∪ app.json hosts)
+- docker web precision PASS

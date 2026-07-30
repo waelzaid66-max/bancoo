@@ -1,7 +1,7 @@
-From 99998241d74ea8c7b699e62eb63290bf2f3167ac Mon Sep 17 00:00:00 2001
+From 4df0274c5c72fa27f87e8ef96c747e7a307334b8 Mon Sep 17 00:00:00 2001
 From: Cursor Agent <cursoragent@cursor.com>
 Date: Thu, 30 Jul 2026 12:14:26 +0000
-Subject: [PATCH] docs: re-verify SoT gates + document Cursor App install
+Subject: [PATCH 3/4] docs: re-verify SoT gates + document Cursor App install
  blocker
 
 Refresh certification with 16/16 confidence, 150 mobile tests, Docker
