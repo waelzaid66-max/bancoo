@@ -1,7 +1,7 @@
 From 289a4cc0c8d3e9b352f6efe0a17bd4e7cb4244a8 Mon Sep 17 00:00:00 2001
 From: Cursor Agent <cursoragent@cursor.com>
 Date: Thu, 30 Jul 2026 12:01:08 +0000
-Subject: [PATCH 3/3] chore: attach format-patch bundle for SoT restitution
+Subject: [PATCH 3/4] chore: attach format-patch bundle for SoT restitution
  apply
 
 Emergency apply path if agent cannot push: git am these patches onto
