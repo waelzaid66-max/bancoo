@@ -205,5 +205,7 @@ See `PRODUCTION_GAP_MATRIX.md` for the full row-level inventory.
 
 ## Delivery note (agent environment)
 
-Independent certification SoT clone tip: `waelzaid66-max/banco-with-wael@b7212bf` (+ local commit `442e68a`).
-This PR is delivered on `bancoo` because the cloud agent environment has write access here; `cursor[bot]` received 403 pushing to `banco-with-wael`. Owner should cherry-pick/merge the same commit onto SoT if `bancoo` is not the deploy SoT.
+- Independent certification SoT clone tip: `waelzaid66-max/banco-with-wael@b7212bf` (+ local unreached commit `442e68a` — `cursor[bot]` received **403** pushing to that repo).
+- This PR is on **`bancoo`** (agent write access). Package identity here is **`com.bancoboom.app`** (sister fork). SoT mobile identity is **`com.bancooom.app`**.
+- Owner must cherry-pick the SoT-local commit onto `banco-with-wael` if that remains the Coolify deploy SoT, and confirm which package id is live in Play/App Store before submit.
+

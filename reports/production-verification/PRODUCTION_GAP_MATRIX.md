@@ -82,6 +82,12 @@ Every finding is either fixed in the repository or requires external operations.
 
 ---
 
+## Delivery note
+
+Primary independent audit target was `banco-with-wael@b7212bf`. This matrix file is also landed on `bancoo` (agent push target) with identity `com.bancoboom.app`. Local SoT commit `442e68a` could not be pushed (403). Owner must reconcile deploy SoT vs package id before store submit.
+
+---
+
 ## Independent claim verification (sample)
 
 | Prior claim | Independent result |

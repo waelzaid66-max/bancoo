@@ -127,6 +127,18 @@ export async function requestUploadUrlHandler(req: Request, res: Response): Prom
     return res.status(200).json(successResponse(result));
   } catch (error) {
     req.log.error({ err: error }, "Error generating upload URL");
+    // Object storage not provisioned is a deploy/config gap — clear 503 for ops/app.
+    const msg = error instanceof Error ? error.message : "";
+    if (/not set|OBJECT_SEARCH_PATHS|PRIVATE_OBJECT_DIR/i.test(msg)) {
+      return res
+        .status(503)
+        .json(
+          errorResponse(
+            "INTERNAL_ERROR",
+            "Image upload is not available yet — object storage is not configured on the server.",
+          ),
+        );
+    }
     return res
       .status(500)
       .json(errorResponse("INTERNAL_ERROR", "Failed to generate upload URL"));

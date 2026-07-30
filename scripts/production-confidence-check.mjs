@@ -233,12 +233,16 @@ function checkWellKnownTemplates() {
   }
   const aasaText = fs.readFileSync(aasa, "utf8");
   const assetText = fs.readFileSync(assetlinks, "utf8");
-  if (!aasaText.includes("com.bancooom.app")) {
-    fail("well-known AASA", "must target com.bancooom.app");
-    return;
-  }
-  if (!assetText.includes("com.bancooom.app")) {
-    fail("well-known assetlinks", "must target com.bancooom.app");
+  const appJson = readJson("artifacts/banco-mobile/app.json");
+  const packageId =
+    appJson?.expo?.android?.package ||
+    appJson?.expo?.ios?.bundleIdentifier ||
+    "";
+  if (!packageId || !aasaText.includes(packageId) || !assetText.includes(packageId)) {
+    fail(
+      "well-known identity",
+      `AASA/assetlinks must target app package ${packageId || "(missing)"}`,
+    );
     return;
   }
   const nginxText = fs.readFileSync(nginx, "utf8");
