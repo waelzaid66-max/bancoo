@@ -3,15 +3,14 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
 /**
  * Deep-link / universal-link origin for expo-router static rendering.
  *
- * - Dev / Replit: defaults to https://replit.com/ (matches current tunnel host).
- * - Production EAS: set EXPO_PUBLIC_ROUTER_ORIGIN=https://your-production-domain
- *   in the EAS production environment before `eas build --profile production`.
- *
- * Do NOT hardcode the production domain here — it would break local Expo Go dev.
+ * Prefer EXPO_PUBLIC_ROUTER_ORIGIN, then EXPO_PUBLIC_PUBLIC_APP_URL (production
+ * app host). Last resort is replit.com for local Expo Go on Replit only —
+ * Coolify/EAS must set a real origin or web export canonical links break.
  */
 const routerOrigin =
   process.env.EXPO_PUBLIC_ROUTER_ORIGIN?.trim() ||
   process.env.EXPO_ROUTER_ORIGIN?.trim() ||
+  process.env.EXPO_PUBLIC_PUBLIC_APP_URL?.trim() ||
   "https://replit.com/";
 
 /**
@@ -53,6 +52,74 @@ function withRouterOrigin(plugins: ExpoConfig["plugins"]): ExpoConfig["plugins"]
   });
 }
 
+type AndroidIntentFilter = NonNullable<
+  NonNullable<ExpoConfig["android"]>["intentFilters"]
+>[number];
+
+/**
+ * Collect HTTPS hosts already declared on Android intent filters (from app.json).
+ * Used so an env-driven primary host ADDS to the multi-host set instead of
+ * wiping banco.deals / banco.autos (H2 regression).
+ */
+function hostsFromIntentFilters(
+  filters: NonNullable<ExpoConfig["android"]>["intentFilters"] | undefined,
+): string[] {
+  const hosts: string[] = [];
+  for (const filter of filters ?? []) {
+    const data = filter.data;
+    const entries = Array.isArray(data) ? data : data ? [data] : [];
+    for (const entry of entries) {
+      if (
+        entry &&
+        typeof entry === "object" &&
+        "host" in entry &&
+        typeof entry.host === "string" &&
+        entry.host.length > 0
+      ) {
+        hosts.push(entry.host);
+      }
+    }
+  }
+  return hosts;
+}
+
+/**
+ * Merge app.json multi-host App Links with the env primary host.
+ * Path prefixes stay production-safe (/l, /listing) for every host in the union.
+ */
+function mergeAndroidAppLinkFilters(
+  existing: NonNullable<ExpoConfig["android"]>["intentFilters"] | undefined,
+  primaryHost: string,
+): AndroidIntentFilter[] {
+  const hosts = Array.from(
+    new Set([...hostsFromIntentFilters(existing), primaryHost]),
+  );
+  return [
+    {
+      action: "VIEW",
+      autoVerify: true,
+      data: hosts.flatMap((host) => [
+        { scheme: "https", host, pathPrefix: "/l" },
+        { scheme: "https", host, pathPrefix: "/listing" },
+      ]),
+      category: ["BROWSABLE", "DEFAULT"],
+    },
+  ];
+}
+
+function mergeAssociatedDomains(
+  existing: string[] | undefined,
+  primaryHost: string,
+): string[] {
+  return Array.from(
+    new Set([
+      ...(existing ?? []),
+      `applinks:${primaryHost}`,
+      `webcredentials:${primaryHost}`,
+    ]),
+  );
+}
+
 // Canonical dynamic-config pattern: `config` IS the parsed app.json, so the
 // static store config (bundle ids, permissions, icons) stays the single source
 // of truth and this file only layers the env-driven link/origin bits on top.
@@ -62,6 +129,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // Web static export served under a path prefix (e.g. /banco-mobile/ on the
   // Replit deployment). Set ONLY by scripts/build.js during `expo export -p web`;
   // absent in dev and native builds so nothing changes there.
+  // Restored from bancoo production handoff (C-WEB-BASE) — evidence: white-screen
+  // / QR-only browser when web export path prefix is missing.
   ...(process.env.EXPO_WEB_BASE_URL
     ? {
         experiments: {
@@ -74,10 +143,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ...config.ios,
     ...(webHost
       ? {
-          associatedDomains: [
-            `applinks:${webHost}`,
-            `webcredentials:${webHost}`,
-          ],
+          associatedDomains: mergeAssociatedDomains(
+            config.ios?.associatedDomains,
+            webHost,
+          ),
         }
       : {}),
   },
@@ -85,17 +154,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ...config.android,
     ...(webHost
       ? {
-          intentFilters: [
-            {
-              action: "VIEW",
-              autoVerify: true,
-              data: [
-                { scheme: "https", host: webHost, pathPrefix: "/l" },
-                { scheme: "https", host: webHost, pathPrefix: "/listing" },
-              ],
-              category: ["BROWSABLE", "DEFAULT"],
-            },
-          ],
+          intentFilters: mergeAndroidAppLinkFilters(
+            config.android?.intentFilters,
+            webHost,
+          ),
         }
       : {}),
   },

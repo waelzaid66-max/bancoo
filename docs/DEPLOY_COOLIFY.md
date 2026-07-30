@@ -32,7 +32,7 @@ The Expo mobile app (`artifacts/banco-mobile`) runs on iOS/Android via EAS — i
 
 1. In Coolify dashboard → **New Resource** → **Docker Compose**
 2. Connect your GitHub/GitLab account
-3. Select the `waelzaid66-max/bancoo` repository
+3. Select the `waelzaid66-max/banco-with-wael` repository (SoT monorepo)
 4. Set the **Compose file path** to: `docker-compose.coolify.yml`
 5. Click **Save**
 
@@ -123,11 +123,21 @@ Click **Deploy** in Coolify. Coolify will:
 | `PAYMOB_SECRET_KEY` | — | Paymob secret key |
 | `PAYMOB_HMAC_SECRET` | — | Paymob HMAC secret |
 | `PAYMOB_INTEGRATION_IDS` | — | Paymob integration IDs (JSON) |
-| `OBJECT_STORAGE_PROVIDER` | `replit` | `s3` or `replit` — **NOT `gcs`** (the API rejects `gcs`: "Unsupported OBJECT_STORAGE_PROVIDER … Supported: s3, replit"). For a VPS/Coolify deploy use `s3` (any S3-compatible endpoint). |
+| `OBJECT_STORAGE_PROVIDER` | — (must set explicitly) | `s3` or `replit` — **NOT `gcs`** (the API rejects `gcs`: "Unsupported OBJECT_STORAGE_PROVIDER … Supported: s3, replit"). For Coolify/Hostinger VPS set **`s3`** with static AWS keys. Do **not** leave unset and do **not** use `replit` when `COOLIFY_URL`/`COOLIFY_FQDN` are present (API refuses start). |
 | `S3_BUCKET` | — | S3 bucket name |
 | `AWS_REGION` | — | AWS region |
+| `AWS_ACCESS_KEY_ID` | — | **Required on Coolify/Hostinger VPS** (no IAM role). Optional on EC2/ECS when an instance role is attached. |
+| `AWS_SECRET_ACCESS_KEY` | — | Pair with `AWS_ACCESS_KEY_ID` on VPS |
 | `PUBLIC_OBJECT_SEARCH_PATHS` | — | Public S3 path prefix for listing images |
 | `PRIVATE_OBJECT_DIR` | — | Private S3 dir for internal assets |
+| `GIT_SHA` | — | Deploy pin for `/api/readyz` (Coolify may also inject `SOURCE_COMMIT`) |
+| `BUILD_ID` | — | Optional build id surfaced on health/readyz |
+| `COOLIFY_URL` / `COOLIFY_FQDN` | — | Coolify markers — forbids `OBJECT_STORAGE_PROVIDER=replit` in-container |
+| `WEB_PLUG_ENABLED` | `true` | Consumer Next kill-switch (`false` → maintenance) |
+| `BANCO_WEB_MARKET_URL` | — | Baked into Next as `NEXT_PUBLIC_MARKET_URL` (prefer `/market/` or absolute) |
+| `BANCO_WEB_ADMIN_URL` | — | Baked into Next as `NEXT_PUBLIC_ADMIN_URL` (prefer `/admin/` or absolute) |
+| `NEXT_PUBLIC_APP_ANDROID_URL` | — | Play Store URL (store CTAs stay “soon” when unset) |
+| `NEXT_PUBLIC_APP_IOS_URL` | — | App Store URL |
 | `ERROR_ALERT_WEBHOOK` | — | Webhook URL for error alerts |
 | `LOG_LEVEL` | `info` | Pino log level |
 | `LOG_DIR` | — | Directory for log file output (omit to log to stdout only) |
@@ -173,15 +183,17 @@ DATABASE_URL="postgresql://banco:<password>@<vps-ip>:5432/banco" \
 
 ### Subsequent deployments
 
-For schema changes after the initial deploy:
+Schema apply uses Drizzle **push** (there is no `generate` / `migrate` script
+in `@workspace/db`). After the DB is healthy:
 
 ```bash
-# Generate a migration file (run locally, commit it)
-pnpm --filter @workspace/db run generate
-
-# Apply migrations in production (via API container shell or CI job)
-pnpm --filter @workspace/db run migrate
+# One-shot (profile-gated — never runs on a normal `up`)
+docker compose -f docker-compose.coolify.yml --profile migrate run --rm migrate
 ```
+
+That runs `pnpm --filter @workspace/db run push -- --force` inside the API
+builder image. On a real data migration, review the SQL first; re-runs are
+idempotent for additive schema.
 
 ### Postgres connection string
 
@@ -202,7 +214,7 @@ DNS on the `banco_net` network.
 Coolify respects Docker Compose `depends_on` semantics:
 
 1. `postgres` starts first (health-checked: `pg_isready`)
-2. `api` starts after Postgres is healthy (health-checked: `/api/healthz`)
+2. `api` starts after Postgres is healthy (health-checked: `/api/readyz`)
 3. `banco-web`, `banco-website`, `web` start after API is healthy
 
 This order is enforced by `depends_on: condition: service_healthy` in
@@ -251,6 +263,24 @@ via Expo Application Services (EAS), not as a Docker container.
 - Set `EXPO_PUBLIC_DOMAIN` to your API domain (e.g. `api.yourdomain.com`)
 - The mobile app communicates with the API over HTTPS — it is unaffected by
   Docker deployment topology
+
+### Universal Links / App Links (well-known)
+
+The `web` nginx image ships templates from `deploy/coolify/well-known/`:
+
+| URL | File |
+|-----|------|
+| `/.well-known/apple-app-site-association` | iOS Universal Links |
+| `/.well-known/assetlinks.json` | Android App Links |
+
+Before store deep-link verification:
+
+1. Replace `REPLACE_APPLE_TEAM_ID` with your Apple Team ID
+2. Replace `REPLACE_PLAY_APP_SIGNING_SHA256` with Play App Signing SHA-256
+3. Redeploy the `web` service
+4. Confirm DNS for `banco.today` (and any other associated hosts) points at Coolify — not Replit / Hostinger Horizons
+
+See `deploy/coolify/well-known/README.md`.
 
 ---
 
@@ -319,7 +349,7 @@ Before going live:
 - [ ] Set all **required** environment variables (see table above)
 - [ ] Set `BANCO_WEB_URL`, `BANCO_WEBSITE_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` before first build
 - [ ] Configure domains in Coolify → Traefik issues TLS certificates automatically
-- [ ] Run database schema push (first time) or migrate (subsequent changes)
+- [ ] Run database schema push once via Coolify migrate profile (`--profile migrate run --rm migrate`)
 - [ ] Set `PAYMOB_MODE=live` and fill in production Paymob credentials
 - [ ] Verify `CORS_ALLOWED_ORIGINS` includes all frontend domains
 - [ ] Set up object storage (`S3_BUCKET` etc.) for media uploads
