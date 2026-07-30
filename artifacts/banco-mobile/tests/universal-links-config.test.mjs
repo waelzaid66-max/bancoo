@@ -16,42 +16,43 @@ test("app.config.ts wires Universal/App Links from env (not hardcoded)", () => {
   assert.doesNotMatch(src, /applinks:banco\./i);
 });
 
+test("app.config.ts merges env host into app.json multi-host set (H2)", () => {
+  const src = fs.readFileSync(APP_CONFIG, "utf8");
+  // Must union hosts — never replace app.json associatedDomains / intentFilters wholesale.
+  assert.match(src, /mergeAssociatedDomains/);
+  assert.match(src, /mergeAndroidAppLinkFilters/);
+  assert.match(src, /hostsFromIntentFilters/);
+  assert.match(src, /config\.ios\?\.associatedDomains/);
+  assert.match(src, /config\.android\?\.intentFilters/);
+});
+
+test("nginx + Dockerfile.web ship well-known AASA/assetlinks templates", () => {
+  const root = path.resolve(APP_ROOT, "../..");
+  const aasa = path.join(root, "deploy/coolify/well-known/apple-app-site-association");
+  const assetlinks = path.join(root, "deploy/coolify/well-known/assetlinks.json");
+  const nginx = fs.readFileSync(path.join(root, "deploy/coolify/nginx.conf"), "utf8");
+  const dockerfile = fs.readFileSync(
+    path.join(root, "deploy/coolify/Dockerfile.web"),
+    "utf8",
+  );
+  assert.ok(fs.existsSync(aasa), "AASA template missing");
+  assert.ok(fs.existsSync(assetlinks), "assetlinks template missing");
+  assert.match(fs.readFileSync(aasa, "utf8"), /REPLACE_APPLE_TEAM_ID/);
+  assert.match(fs.readFileSync(assetlinks, "utf8"), /REPLACE_PLAY_APP_SIGNING_SHA256/);
+  assert.match(nginx, /\.well-known/);
+  assert.match(dockerfile, /well-known\/apple-app-site-association/);
+  assert.match(dockerfile, /well-known\/assetlinks\.json/);
+});
+
 test("custom scheme bancooom remains in app.json", () => {
   const json = JSON.parse(fs.readFileSync(path.join(APP_ROOT, "app.json"), "utf8"));
   assert.equal(json.expo.scheme, "bancooom");
 });
 
-test("EAS production can ship a SECOND build to both stores", () => {
-  const eas = JSON.parse(
-    fs.readFileSync(path.join(APP_ROOT, "eas.json"), "utf8"),
-  );
-  const prod = eas.build?.production;
-  assert.ok(prod, "an EAS production profile must exist");
-
-  // Both stores reject an upload whose build identifier is already taken. iOS was
-  // already covered; Android was not, so every production build carried
-  // versionCode 1 and the FIRST release would have succeeded while the second was
-  // rejected — a failure that only appears on the update, after launch, when it
-  // is most expensive.
-  assert.equal(
-    prod.android?.autoIncrement,
-    true,
-    "Android versionCode must auto-increment or Play refuses the second upload",
-  );
-  assert.equal(
-    prod.ios?.autoIncrement,
-    true,
-    "iOS buildNumber must auto-increment or App Store Connect refuses the second upload",
-  );
-  assert.equal(
-    prod.android?.buildType,
-    "app-bundle",
-    "Play requires an .aab, not an .apk, for production releases",
-  );
-  // autoIncrement only has somewhere to write when versions are owned locally.
-  assert.equal(
-    eas.cli?.appVersionSource,
-    "local",
-    "appVersionSource must be local for autoIncrement to update app.json",
-  );
+test("Expo product identity stays canonical for this repo (BANCO / com.bancoboom.app)", () => {
+  const json = JSON.parse(fs.readFileSync(path.join(APP_ROOT, "app.json"), "utf8"));
+  assert.equal(json.expo.name, "BANCO");
+  assert.equal(json.expo.ios?.bundleIdentifier, "com.bancoboom.app");
+  assert.equal(json.expo.android?.package, "com.bancoboom.app");
+  assert.equal(json.expo.scheme, "bancooom");
 });

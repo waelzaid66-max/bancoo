@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "REPLACE_APPLE_TEAM_ID.com.bancoboom.app",
+        "paths": ["*", "/l/*", "/listing/*"]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["REPLACE_APPLE_TEAM_ID.com.bancoboom.app"]
+  }
+}

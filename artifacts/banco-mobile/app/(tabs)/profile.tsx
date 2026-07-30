@@ -2278,23 +2278,26 @@ export default function ProfileScreen() {
           </View>
         </Modal>
 
-        {/* Overflow menu → existing routes only */}
+        {/* Overflow menu → existing routes only.
+            Touch-safe: sibling dismiss Pressable — never nest sheet under
+            backdrop Pressable with a start-should-set-responder trap (93b650b). */}
         <Modal
           visible={showMenu}
           transparent
           animationType="slide"
           onRequestClose={() => setShowMenu(false)}
         >
-          <Pressable
-            style={styles.menuBackdrop}
-            onPress={() => setShowMenu(false)}
-          >
+          <View style={styles.menuBackdrop}>
+            <Pressable
+              style={StyleSheet.absoluteFillObject}
+              onPress={() => setShowMenu(false)}
+              accessibilityRole="button"
+            />
             <View
               style={[
                 styles.menuSheet,
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
-              onStartShouldSetResponder={() => true}
             >
               <View
                 style={[styles.menuHandle, { backgroundColor: colors.border }]}
@@ -2310,40 +2313,46 @@ export default function ProfileScreen() {
                   {userEmail}
                 </AppText>
               ) : null}
-              {menuItems.map((mi) => (
-                <Pressable
-                  key={mi.key}
-                  onPress={mi.onPress}
-                  style={[styles.menuItem, isRTL && styles.rowReverse]}
-                  testID={`menu-${mi.key}`}
-                >
-                  <Feather
-                    name={mi.icon}
-                    size={18}
-                    color={mi.danger ? colors.destructive : colors.foreground}
-                  />
-                  <AppText
-                    style={[
-                      styles.menuItemText,
-                      {
-                        color: mi.danger
-                          ? colors.destructive
-                          : colors.foreground,
-                        textAlign: isRTL ? "right" : "left",
-                      },
-                    ]}
+              <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+                {menuItems.map((mi) => (
+                  <Pressable
+                    key={mi.key}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setShowMenu(false);
+                      mi.onPress();
+                    }}
+                    style={[styles.menuItem, isRTL && styles.rowReverse]}
+                    testID={`menu-${mi.key}`}
                   >
-                    {mi.label}
-                  </AppText>
-                  <Feather
-                    name={isRTL ? "chevron-left" : "chevron-right"}
-                    size={16}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-              ))}
+                    <Feather
+                      name={mi.icon}
+                      size={18}
+                      color={mi.danger ? colors.destructive : colors.foreground}
+                    />
+                    <AppText
+                      style={[
+                        styles.menuItemText,
+                        {
+                          color: mi.danger
+                            ? colors.destructive
+                            : colors.foreground,
+                          textAlign: isRTL ? "right" : "left",
+                        },
+                      ]}
+                    >
+                      {mi.label}
+                    </AppText>
+                    <Feather
+                      name={isRTL ? "chevron-left" : "chevron-right"}
+                      size={16}
+                      color={colors.mutedForeground}
+                    />
+                  </Pressable>
+                ))}
+              </ScrollView>
             </View>
-          </Pressable>
+          </View>
         </Modal>
       </ScrollView>
     );
@@ -3966,6 +3975,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 36,
     borderWidth: 1,
+    maxHeight: "85%",
   },
   menuHandle: {
     width: 40,

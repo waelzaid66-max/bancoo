@@ -181,11 +181,113 @@ function checkOpenApi() {
   pass("openapi.yaml structure");
 }
 
+/** Anti-93b650b pollution: touch-trap menus + opaque upload 500 for missing storage. */
+function checkReplitWipePollution() {
+  const profile = path.join(MOBILE, "app", "(tabs)", "profile.tsx");
+  const promote = path.join(MOBILE, "components", "PromoteButton.tsx");
+  const home = path.join(MOBILE, "app", "(tabs)", "index.tsx");
+  const upload = path.join(ROOT, "artifacts", "api-server", "src", "controllers", "uploadController.ts");
+
+  for (const [label, file] of [
+    ["profile.tsx", profile],
+    ["PromoteButton.tsx", promote],
+    ["index.tsx", home],
+  ]) {
+    if (!fs.existsSync(file)) {
+      fail("anti-wipe menus", `missing ${label}`);
+      return;
+    }
+    const src = fs.readFileSync(file, "utf8");
+    if (/onStartShouldSetResponder/.test(src)) {
+      fail("anti-wipe menus", `${label} still contains onStartShouldSetResponder (93b650b pollution)`);
+      return;
+    }
+  }
+
+  const profileSrc = fs.readFileSync(profile, "utf8");
+  if (!/maxHeight:\s*["']85%["']/.test(profileSrc)) {
+    fail("anti-wipe menus", "profile menuSheet missing maxHeight 85%");
+    return;
+  }
+
+  if (!fs.existsSync(upload)) {
+    fail("anti-wipe upload 503", "uploadController.ts missing");
+    return;
+  }
+  const uploadSrc = fs.readFileSync(upload, "utf8");
+  if (!/Image upload is not available yet — object storage is not configured/.test(uploadSrc)) {
+    fail("anti-wipe upload 503", "request-url must map missing storage config to clear 503 (0afef07)");
+    return;
+  }
+  pass("anti-wipe pollution guards", "menus touch-safe + upload 503 restored");
+}
+
+function checkWellKnownTemplates() {
+  const aasa = path.join(ROOT, "deploy/coolify/well-known/apple-app-site-association");
+  const assetlinks = path.join(ROOT, "deploy/coolify/well-known/assetlinks.json");
+  const nginx = path.join(ROOT, "deploy/coolify/nginx.conf");
+  const dockerfile = path.join(ROOT, "deploy/coolify/Dockerfile.web");
+  if (!fs.existsSync(aasa) || !fs.existsSync(assetlinks)) {
+    fail("well-known templates", "AASA or assetlinks.json missing under deploy/coolify/well-known/");
+    return;
+  }
+  const aasaText = fs.readFileSync(aasa, "utf8");
+  const assetText = fs.readFileSync(assetlinks, "utf8");
+  const appJson = readJson("artifacts/banco-mobile/app.json");
+  const packageId =
+    appJson?.expo?.android?.package ||
+    appJson?.expo?.ios?.bundleIdentifier ||
+    "";
+  if (!packageId || !aasaText.includes(packageId) || !assetText.includes(packageId)) {
+    fail(
+      "well-known identity",
+      `AASA/assetlinks must target app package ${packageId || "(missing)"}`,
+    );
+    return;
+  }
+  const nginxText = fs.readFileSync(nginx, "utf8");
+  const dfText = fs.readFileSync(dockerfile, "utf8");
+  if (!nginxText.includes(".well-known")) {
+    fail("well-known nginx", "nginx.conf must serve /.well-known/");
+    return;
+  }
+  if (!dfText.includes("well-known/apple-app-site-association")) {
+    fail("well-known Dockerfile.web", "must COPY AASA into the nginx image");
+    return;
+  }
+  const placeholdersPresent =
+    aasaText.includes("REPLACE_APPLE_TEAM_ID") ||
+    assetText.includes("REPLACE_PLAY_APP_SIGNING_SHA256");
+  pass(
+    "well-known templates",
+    placeholdersPresent
+      ? "shipped (OPS must replace REPLACE_* before store verify)"
+      : "shipped with filled values",
+  );
+}
+
+function checkMobileRuntimeDeps() {
+  try {
+    const pkg = readJson("artifacts/banco-mobile/package.json");
+    const deps = pkg.dependencies ?? {};
+    const required = ["expo", "react", "react-native", "@clerk/expo", "expo-router"];
+    const missing = required.filter((name) => !deps[name]);
+    if (missing.length) {
+      fail(
+        "mobile runtime dependencies",
+        `must be in dependencies (not only devDependencies): ${missing.join(", ")}`,
+      );
+      return;
+    }
+    pass("mobile runtime dependencies", "expo/react-native/clerk in dependencies");
+  } catch (e) {
+    fail("mobile runtime dependencies", e instanceof Error ? e.message : String(e));
+  }
+}
+
 function checkMobileTests() {
   const r = run("pnpm", ["run", "test"], MOBILE);
-  const countMatch = (r.stdout || "").match(/ℹ pass (\d+)/);
-  const label = countMatch ? `${countMatch[1]} tests` : "mobile test suite";
-  if (r.ok) pass("mobile regression tests", label);
+  if (r.ok) pass("mobile regression tests", "full pack exit 0");
   else fail("mobile regression tests", r.stderr || r.stdout || `exit ${r.status}`);
 }
 
@@ -228,6 +330,9 @@ function main() {
   checkExpoSdkAlignment();
   checkWorkspaceRefs();
   checkOpenApi();
+  checkReplitWipePollution();
+  checkWellKnownTemplates();
+  checkMobileRuntimeDeps();
   checkGcpDockerConfig();
 
   if (!skipTypecheck) {
