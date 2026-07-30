@@ -1,7 +1,7 @@
 From 442e68a40b16ec5788b9bbcfbe36e9a6f47e704b Mon Sep 17 00:00:00 2001
 From: Cursor Agent <cursoragent@cursor.com>
 Date: Thu, 30 Jul 2026 10:57:16 +0000
-Subject: [PATCH 1/4] certify production gaps and close in-repo blockers
+Subject: [PATCH] certify production gaps and close in-repo blockers
 
 - Merge env deep-link host into app.json multi-host set (H2)
 - Ship AASA/assetlinks templates via nginx web image
